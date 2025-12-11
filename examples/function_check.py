@@ -1,5 +1,8 @@
 # pylint: disable=no-member
 
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="pygame.pkgdata")
+
 from time import perf_counter
 import numpy as np
 import eve
