@@ -1,0 +1,23 @@
+name: sofa-25
+channels:
+  - https://repo.prefix.dev/sofa-framework     # official SOFA channel on prefix.dev
+  - conda-forge
+dependencies:
+  # Windows/macOS/Linux all have py310/py311/py312/py313 builds on 25.06.
+  - python=3.12
+
+  # SOFA 25.06 core app + Python bindings + rods plugin
+  - sofa-app=25.06.00
+  - sofa-python3=25.06.00
+  - sofa-beamadapter=25.06.00
+
+  # Your science stack
+  - numpy
+  - scipy
+  - pandas
+  - pyvista
+  - pybind11=2.12
+  - pip
+
+# set up by running command:
+#   conda env create -f sofa_env_25.yml
