@@ -9,7 +9,7 @@
 test*
 
 # Data
-.data/
+.data/*
 
 ## Github Python Template:
 # Byte-compiled / optimized / DLL files

@@ -1,4 +1,4 @@
-# stEVEN (simulated EndoVascular Environment) N (Nuovo?)
+# stEVEN (simulated EndoVascular Environment - Nuovo?)
 Framework for the creation of simulations of endovascular interventions using the [SOFA simulation framework](https://www.sofa-framework.org) as simulation engine. EVE was designed for reinforcement learning and offers the seamless integration of *state*, *reward*, *terminal*, *truncation* and *info* features as defined by the [Farama gymnasium](https://gymnasium.farama.org) and can therefore be integrated with any RL framework adhering to this standard. Nevertheless, it is possible to use the simulated intervention for other purposes.
 
 During design high priorities were modularity and pythonic way of usage. Resulting in the following architecture. 
@@ -7,8 +7,8 @@ During design high priorities were modularity and pythonic way of usage. Resulti
 
 ## Getting started
 
-## UPDATE FOR SOFA-25 (scrappy but works) TESTED ON WSL UBUNTU
-1. Set up primary sofa-25 environment by running: 
+## UPDATED FOR SOFA-25.06.00 (scrappy but works) TESTED ON WSL UBUNTU
+1. Set up primary sofa-25 environment (using conda): 
    ```
    conda env create -f sofa_env_25.yml
    ```
