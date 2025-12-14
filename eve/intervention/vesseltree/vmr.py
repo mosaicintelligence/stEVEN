@@ -42,6 +42,20 @@ def _get_vtk_file(directory: str, file_ending: str) -> str:
             path = os.path.join(directory, file)
             return path
 
+def _load_raw_points_from_pth(pth_file_path: str) -> np.ndarray:
+    """Load all centerline points from a .pth without filtering against the mesh."""
+    with open(pth_file_path, "r", encoding="utf-8") as file:
+        next(file)
+        next(file)
+        tree = minidom.parse(file)
+    points = []
+    for point in tree.getElementsByTagName("pos"):
+        x = float(point.attributes["x"].value) * SCALING_FACTOR
+        y = float(point.attributes["y"].value) * SCALING_FACTOR
+        z = float(point.attributes["z"].value) * SCALING_FACTOR
+        points.append([x, y, z])
+    return np.array(points, dtype=np.float32)
+
 
 def _load_points_from_pth(
     pth_file_path: str, vtu_mesh: pv.UnstructuredGrid, check_if_points_in_mesh: bool
@@ -88,6 +102,7 @@ class VMR(VesselTree):
         approx_branch_radii: Union[List[float], float],
         rotate_yzx_deg: Optional[Tuple[float, float, float]] = None,
         check_if_points_in_mesh: bool = True,
+        auto_choose_insertion_endpoint: bool = True,
     ) -> None:
         self.model = model
         self.insertion_point_idx = insertion_point_idx
@@ -96,6 +111,7 @@ class VMR(VesselTree):
         self.approx_branch_radii = approx_branch_radii
         self.rotate_yzx_deg = rotate_yzx_deg
         self.check_if_points_in_mesh = check_if_points_in_mesh
+        self.auto_choose_insertion_endpoint = auto_choose_insertion_endpoint
 
         self._model_folder = download_vmr_files(model)
         self.mesh_folder = os.path.join(self._model_folder, "Meshes")
@@ -134,13 +150,36 @@ class VMR(VesselTree):
         self.centerline_coordinates = np.concatenate(centerline_coordinates)
 
         insert_vessel = self[self.insertion_vessel_name]
-        ip, ip_dir = calc_insertion(
+        raw_insert_branch = self._load_raw_insertion_branch(insert_vessel.name)
+        ip_idx = self.insertion_point_idx
+        dir_idx = self.insertion_point_idx + self.insertion_direction_idx_diff
+        if self.auto_choose_insertion_endpoint:
+            ip_idx, dir_idx = self._pick_insertion_endpoint(raw_insert_branch)
+        ip_idx = int(np.clip(ip_idx, 0, raw_insert_branch.coordinates.shape[0] - 1))
+        dir_idx = int(np.clip(dir_idx, 0, raw_insert_branch.coordinates.shape[0] - 1))
+        ip_raw, ip_dir_raw = calc_insertion(raw_insert_branch, ip_idx, dir_idx)
+
+        # Fallback: if the raw insertion is clearly outside the vessel bounding box,
+        # reuse the filtered branch to keep the start near the visible geometry.
+        fallback_ip, fallback_dir = calc_insertion(
             insert_vessel,
-            self.insertion_point_idx,
-            self.insertion_point_idx + self.insertion_direction_idx_diff,
+            np.clip(self.insertion_point_idx, 0, insert_vessel.coordinates.shape[0] - 1),
+            np.clip(
+                self.insertion_point_idx + self.insertion_direction_idx_diff,
+                0,
+                insert_vessel.coordinates.shape[0] - 1,
+            ),
         )
-        # ip, ip_dir = calc_insertion_from_branch_start(insert_vessel)
+        if (
+            np.any(ip_raw < self.coordinate_space.low)
+            or np.any(ip_raw > self.coordinate_space.high)
+            or np.linalg.norm(ip_raw - fallback_ip) > 20.0
+        ):
+            ip, ip_dir = fallback_ip, fallback_dir
+        else:
+            ip, ip_dir = ip_raw, ip_dir_raw
         self.insertion = Insertion(ip, ip_dir)
+        print(f"[VMR] insertion branch={insert_vessel.name} ip={np.round(ip,2)} dir={np.round(ip_dir,2)}")
         self.branching_points = calc_branching(self.branches, self.approx_branch_radii)
         self._mesh_path = None
 
@@ -160,6 +199,40 @@ class VMR(VesselTree):
         branch_lows = [branch.low for branch in branches]
         low = np.min(branch_lows, axis=0)
         return gym.spaces.Box(low=low, high=high)
+
+    def _pick_insertion_endpoint(self, branch: Branch) -> Tuple[int, int]:
+        """Choose the branch end closest to the bounding box as insertion point."""
+        coords = branch.coordinates
+        n_points = coords.shape[0]
+        if n_points < 2:
+            return 0, min(1, n_points - 1)
+
+        low = self.coordinate_space.low
+        high = self.coordinate_space.high
+
+        def boundary_distance(pt: np.ndarray) -> float:
+            return float(np.min(np.concatenate([pt - low, high - pt])))
+
+        first_dist = boundary_distance(coords[0])
+        last_dist = boundary_distance(coords[-1])
+
+        if last_dist < first_dist:
+            return n_points - 1, n_points - 2
+        return 0, 1
+
+    def _load_raw_insertion_branch(self, branch_name: str) -> Branch:
+        """Load the chosen insertion branch without any mesh/bounds filtering."""
+        path_dir = os.path.join(self._model_folder, "Paths")
+        for file in os.listdir(path_dir):
+            if file.endswith(".pth") and file[:-4].lower() == branch_name:
+                raw_points = _load_raw_points_from_pth(os.path.join(path_dir, file))
+                branch = Branch(branch_name, raw_points)
+                if self.rotate_yzx_deg is not None:
+                    # Apply the same rotation as the mesh/branches to keep insertion aligned
+                    branch = rotate_branches([branch], self.rotate_yzx_deg)[0]
+                return branch
+        # Fallback to filtered branch if raw not found
+        return self[branch_name]
 
     def _make_mesh_obj(self):
         mesh_path = _get_vtk_file(self.mesh_folder, ".vtp")

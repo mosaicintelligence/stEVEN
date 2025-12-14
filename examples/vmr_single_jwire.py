@@ -349,7 +349,7 @@ def main() -> None:
         target=target,
     )
 
-    start = eve.start.MaxDeviceLength(intervention=intervention, max_length=500)
+    start = eve.start.MaxDeviceLength(intervention=intervention, max_length=1000)
     pathfinder = eve.pathfinder.BruteForceBFS(intervention=intervention)
 
     position = eve.observation.Tracking2D(intervention=intervention, n_points=5)

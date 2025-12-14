@@ -43,6 +43,7 @@ class CenterlineRandom(Target):
             self._init_centerline_point_cloud()
             self._branches_initialized = self.vessel_tree.branches
         target_vessel_cs = self._rng.choice(self._potential_targets)
+        print(f"[Target] chosen target (vessel_cs) {np.round(target_vessel_cs,2)}")
         self.coordinates3d = vessel_cs_to_tracking3d(
             target_vessel_cs,
             self.fluoroscopy.image_rot_zx,

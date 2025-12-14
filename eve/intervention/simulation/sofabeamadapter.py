@@ -146,24 +146,25 @@ class SofaBeamAdapter(Simulation):
             self.root.gravity = [0.0, 0.0, 0.0]
             self.root.dt = self.dt_simulation
             self._load_plugins()
-            self._basic_setup(self.friction)
-            self._add_vessel_tree(mesh_path=mesh_path)
-            self._add_devices(
+        self._basic_setup(self.friction)
+        self._add_vessel_tree(mesh_path=mesh_path)
+        self._add_devices(
+            devices=devices,
+            insertion_point=insertion_point,
+            insertion_direction=insertion_direction,
+        )
+        if self.init_visual_nodes:
+            self._add_visual(
+                self.display_size,
+                coords_low,
+                coords_high,
+                self.target_size,
+                self.interim_target_size,
                 devices=devices,
                 insertion_point=insertion_point,
-                insertion_direction=insertion_direction,
+                centerlines=centerlines,
+                vessel_visual_path=vessel_visual_path,
             )
-            if self.init_visual_nodes:
-                self._add_visual(
-                    self.display_size,
-                    coords_low,
-                    coords_high,
-                    self.target_size,
-                    self.interim_target_size,
-                    devices=devices,
-                    centerlines=centerlines,
-                    vessel_visual_path=vessel_visual_path,
-                )
 
             self._sofa.Simulation.init(self.root)
             self._insertion_point = insertion_point
@@ -268,7 +269,10 @@ class SofaBeamAdapter(Simulation):
 
     def _add_devices(self, devices: List[Device], insertion_point, insertion_direction):
         device_beam_counts = []  # Track total beams per device for topology
-        
+        insertion_pose = self._calculate_insertion_pose(
+            insertion_point, insertion_direction
+        )
+
         for device in devices:
             sofa_device = device.sofa_device
             topo_lines = self.root.addChild("topolines_" + device.name)
@@ -363,7 +367,7 @@ class SofaBeamAdapter(Simulation):
             ymax=0,
             zmax=1,
             zmin=1,
-            p0=[0, 0, 0],
+            p0=insertion_point, # Starting point, must be set!
         )
         instruments_combined.addObject(
             "MechanicalObject",
@@ -402,9 +406,6 @@ class SofaBeamAdapter(Simulation):
         x_tip[0] += 0.1
         interpolations = interpolations[:-1]
 
-        insertion_pose = self._calculate_insertion_pose(
-            insertion_point, insertion_direction
-        )
 
         controller = instruments_combined.addObject(
             "InterventionalRadiologyController",
@@ -419,6 +420,22 @@ class SofaBeamAdapter(Simulation):
         self._set_component_data(controller, "speed", 0.0)
         self._set_component_data(controller, "listening", True)
         self._set_component_data(controller, "controlledInstrument", 0)
+        print(f"[Sofa] startingPos={np.round(insertion_pose,2)} xtip0={x_tip[0]:.3f}")
+        # Align initial DOFs with insertion pose to avoid orthogonal rest shape
+        try:
+            n_nodes = nx + 1
+            initial_pose = np.asarray(insertion_pose, dtype=float)
+            init_positions = np.tile(initial_pose, (n_nodes, 1))
+            instruments_combined.DOFs.position.value = init_positions
+        except Exception as exc:
+            self.logger.debug("Could not set initial DOFs position: %s", exc)
+
+        # Debug initial DOFs alignment
+        dofs_pos = instruments_combined.DOFs.position.value
+        if dofs_pos is not None and len(dofs_pos) > 0:
+            base = np.round(dofs_pos[-1][0:3], 2)
+            tip = np.round(dofs_pos[0][0:3], 2)
+            print(f"[Sofa] DOFs base={base} tip={tip}")
 
         constraint_correction = instruments_combined.addObject(
             "LinearSolverConstraintCorrection"
@@ -460,6 +477,7 @@ class SofaBeamAdapter(Simulation):
         target_size: float,
         interim_target_size: float,
         devices: List[Device],
+        insertion_point=None,
         centerlines=None,
         vessel_visual_path: Optional[str] = None,
     ):
@@ -500,15 +518,17 @@ class SofaBeamAdapter(Simulation):
 
         # Centerlines (optional, for debugging insertion / alignment)
         if centerlines is not None:
-            centerlines = np.asarray(centerlines, dtype=float)
-            if centerlines.ndim == 2 and centerlines.shape[0] > 1:
-                cl_node = self.root.addChild("Centerlines")
+            def _add_centerline(polyline, idx: int):
+                polyline = np.asarray(polyline, dtype=float)
+                if polyline.ndim != 2 or polyline.shape[0] < 2:
+                    return
+                cl_node = self.root.addChild(f"Centerlines_{idx}")
                 cl_node.addObject(
                     "MechanicalObject",
                     name="mo",
-                    position=centerlines.tolist(),
+                    position=polyline.tolist(),
                 )
-                edges = [[i, i + 1] for i in range(centerlines.shape[0] - 1)]
+                edges = [[i, i + 1] for i in range(polyline.shape[0] - 1)]
                 cl_node.addObject("EdgeSetTopologyContainer", edges=edges)
                 cl_node.addObject("EdgeSetGeometryAlgorithms", template="Vec3d")
                 cl_visu = cl_node.addChild("Visual")
@@ -523,6 +543,12 @@ class SofaBeamAdapter(Simulation):
                     input="@../mo",
                     output="@Visual",
                 )
+
+            if isinstance(centerlines, (list, tuple)):
+                for idx, poly in enumerate(centerlines):
+                    _add_centerline(poly, idx)
+            else:
+                _add_centerline(centerlines, 0)
 
         # Devices
         for device in devices:
@@ -603,6 +629,36 @@ class SofaBeamAdapter(Simulation):
         )
         target_visual.addObject("RigidMapping", input="@../MechanicalObject", output="@ogl_model")
         self.target_node = target_node
+
+        # Insertion marker (visual only, no physics)
+        if insertion_point is not None:
+            insertion_node = self.root.addChild("insertion_marker")
+            insertion_node.addObject(
+                "MeshSTLLoader",
+                name="loader",
+                triangulate=True,
+                filename=mesh_path,
+                scale=max(1.0, target_size * 0.3),
+                translation=insertion_point.tolist(),
+            )
+            insertion_node.addObject(
+                "MechanicalObject",
+                src="@loader",
+                translation=insertion_point.tolist(),
+                template="Rigid3d",
+                name="MechanicalObject",
+            )
+            insertion_vis = insertion_node.addChild("Visual")
+            insertion_vis.addObject(
+                "OglModel",
+                src="@../loader",
+                color=[0.0, 0.2, 0.9, 0.9],
+                translation=[0, 0, 0],
+                name="ogl_model",
+            )
+            insertion_vis.addObject(
+                "RigidMapping", input="@../MechanicalObject", output="@ogl_model"
+            )
 
         self.interim_targets = []
         interim_target_node = self.root.addChild("interim_target")
@@ -778,20 +834,30 @@ class SofaBeamAdapter(Simulation):
     def _calculate_insertion_pose(
         insertion_point: np.ndarray, insertion_direction: np.ndarray
     ):
-        insertion_direction = insertion_direction / np.linalg.norm(insertion_direction)
-        original_direction = np.array([1.0, 0.0, 0.0])
-        if np.all(insertion_direction == original_direction):
-            w0 = 1.0
-            xyz0 = [0.0, 0.0, 0.0]
-        elif np.all(np.cross(insertion_direction, original_direction) == 0):
-            w0 = 0.0
-            xyz0 = [0.0, 1.0, 0.0]
+        # Align +X with the insertion direction using a robust quaternion build
+        target = insertion_direction / np.linalg.norm(insertion_direction)
+        source = np.array([1.0, 0.0, 0.0])
+        dot = float(np.dot(source, target))
+        if dot > 1.0:
+            dot = 1.0
+        if dot < -1.0:
+            dot = -1.0
+
+        if np.isclose(dot, 1.0):
+            # Already aligned
+            q_xyz = np.array([0.0, 0.0, 0.0])
+            q_w = 1.0
+        elif np.isclose(dot, -1.0):
+            # Opposite; rotate 180° about any orthogonal axis (use Y)
+            q_xyz = np.array([0.0, 1.0, 0.0])
+            q_w = 0.0
         else:
-            half = (original_direction + insertion_direction) / np.linalg.norm(
-                original_direction + insertion_direction
-            )
-            w0 = np.dot(original_direction, half)
-            xyz0 = np.cross(original_direction, half)
-        xyz0 = list(xyz0)
-        pose = list(insertion_point) + list(xyz0) + [w0]
+            axis = np.cross(source, target)
+            axis_norm = np.linalg.norm(axis)
+            axis = axis / axis_norm
+            half = np.sqrt((1.0 + dot) / 2.0)
+            q_xyz = axis * np.sqrt((1.0 - dot) / 2.0)
+            q_w = half
+
+        pose = list(insertion_point) + list(q_xyz) + [q_w]
         return pose
