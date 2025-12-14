@@ -15,6 +15,7 @@ from pathlib import Path
 import shutil
 import zipfile
 from time import perf_counter
+import math
 
 import numpy as np
 import pygame
@@ -153,15 +154,9 @@ def list_branch_names(model_dir: Path) -> list[str]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "model",
-        nargs="?",
-        default=None,
-        help="VMR model identifier, e.g. 0049_H_ABAO_AIOD",
-    )
-    parser.add_argument(
         "--model",
-        dest="model_override",
-        default=None,
+        type=str,
+        default="0049_H_ABAO_AIOD",
         help="VMR model identifier, mirrors the positional argument",
     )
     parser.add_argument(
@@ -179,14 +174,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--insert-idx",
         type=int,
-        default=25,
+        default=1,
         help="Index of insertion point on the chosen branch",
     )
     parser.add_argument(
         "--direction-delta",
         type=int,
-        default=1,
-        help="Offset between insertion indices to determine insertion direction",
+        default=2,
+        help="Offset to determine insertion direction (along centerline)",
     )
     parser.add_argument(
         "--branch-radius",
@@ -220,6 +215,11 @@ def parse_args() -> argparse.Namespace:
         help="List branches for the resolved model and exit",
     )
     parser.add_argument(
+        "--no-vis",
+        action="store_true",
+        help="Disable visualisation (for benchmarking or headless operation)",
+    )
+    parser.add_argument(
         "--beam-scale",
         type=float,
         default=1.0,
@@ -227,6 +227,18 @@ def parse_args() -> argparse.Namespace:
             "Scale factor applied to the procedural device's beam counts. "
             "Values <1 reduce stiffness, values >1 increase it."
         ),
+    )
+    parser.add_argument(
+        "--sim-dt",
+        type=float,
+        default=0.02,
+        help="Simulation time step for SofaBeamAdapter (seconds per animate step).",
+    )
+    parser.add_argument(
+        "--image-frequency",
+        type=float,
+        default=5.0,
+        help="Fluoro/image frequency in Hz; lower values reduce per-frame Sofa steps.",
     )
     parser.add_argument(
         "--debug-insertion",
@@ -250,8 +262,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    model = args.model_override or args.model or "0049_H_ABAO_AIOD"
-    model_dir = ensure_model_available(model, args.vmr_pool)
+    model_dir = ensure_model_available(args.model, args.vmr_pool)
 
     branch_names = list_branch_names(model_dir)
     if not branch_names:
@@ -274,7 +285,7 @@ def main() -> None:
         target_branches = branch_names
 
     vessel_tree = eve.intervention.vesseltree.VMR(
-        model=model,
+        model=args.model,
         insertion_vessel_name=insertion_vessel,
         insertion_point_idx=args.insert_idx,
         insertion_direction_idx_diff=args.direction_delta,
@@ -282,24 +293,44 @@ def main() -> None:
         rotate_yzx_deg=tuple(args.rotate) if args.rotate else None,
         check_if_points_in_mesh=not args.no_mesh_check,
     )
+    
+    # Improved JShaped device instantiation with parameter overrides from args if present
+    # # Allow for future extensibility: override device parameters via args if needed
+    device_kwargs = {}
+    if hasattr(args, "device_length"):
+        device_kwargs["length"] = args.device_length
+    if hasattr(args, "tip_angle"):
+        device_kwargs["tip_angle"] = args.tip_angle
+    if hasattr(args, "tip_radius"):
+        device_kwargs["tip_radius"] = args.tip_radius
 
-    device = eve.intervention.device.JShaped()
+    device = eve.intervention.device.JShaped(**device_kwargs)
+
+    # # Apply beam scaling if requested
     if args.beam_scale != 1.0:
         sofa_device = device.sofa_device
+        # Scale density_of_beams tuple
         density = np.asarray(sofa_device.density_of_beams, dtype=float)
         scaled = np.maximum(1, np.round(density * args.beam_scale).astype(int))
         sofa_device.density_of_beams = tuple(int(v) for v in scaled)
+        # Scale num_edges_collis tuple if present
         if sofa_device.num_edges_collis is not None:
             collis = np.asarray(sofa_device.num_edges_collis, dtype=float)
             sofa_device.num_edges_collis = tuple(
                 int(max(1, round(c * args.beam_scale))) for c in collis
             )
-    simulation = eve.intervention.simulation.SofaBeamAdapter(friction=0.001)
+    simulation = eve.intervention.simulation.SofaBeamAdapter(
+        friction=0.1, dt_simulation=args.sim_dt
+    )
+    print("beam_density", device.sofa_device.density_of_beams)
+    print("collis_edges", device.sofa_device.num_edges_collis)
+    # print("visu_edges_per_mm", device.sofa_device.visu_edges_per_mm)
+    # print("friction", simulation.friction)
 
     fluoroscopy = eve.intervention.fluoroscopy.TrackingOnly(
         simulation=simulation,
         vessel_tree=vessel_tree,
-        image_frequency=7.5,
+        image_frequency=args.image_frequency,
         image_rot_zx=[20, 5],
     )
 
@@ -318,7 +349,7 @@ def main() -> None:
         target=target,
     )
 
-    start = eve.start.MaxDeviceLength(intervention=intervention, max_length=1000)
+    start = eve.start.MaxDeviceLength(intervention=intervention, max_length=500)
     pathfinder = eve.pathfinder.BruteForceBFS(intervention=intervention)
 
     position = eve.observation.Tracking2D(intervention=intervention, n_points=5)
@@ -362,6 +393,7 @@ def main() -> None:
     insertion_warning_active = False
 
     def check_insertion_alignment(source: str) -> None:
+        """Check insertion alignment and log warnings if needed."""
         nonlocal insertion_warning_active
         if not args.debug_insertion:
             return
@@ -385,61 +417,72 @@ def main() -> None:
             insertion_warning_active = False
 
     env.reset()
+    print("Environment initialized. Use arrow keys to advance the simulation.")
     check_insertion_alignment("reset")
-
+    print("Press ENTER to reset, ESC to exit.")
     n_steps = 0
     while True:
         start_time = perf_counter()
         trans = 0.0
         rot = 0.0
         camera_trans = np.array([0.0, 0.0, 0.0])
-        pygame.event.get()
-        keys_pressed = pygame.key.get_pressed()
-
-        if keys_pressed[pygame.K_ESCAPE]:
-            break
-        if keys_pressed[pygame.K_UP]:
-            trans += 5
-        if keys_pressed[pygame.K_DOWN]:
-            trans -= 5
-        if keys_pressed[pygame.K_LEFT]:
-            rot += np.pi / 2
-        if keys_pressed[pygame.K_RIGHT]:
-            rot -= np.pi / 2
-        if keys_pressed[pygame.K_r]:
-            lao_rao = 0
-            cra_cau = 0
-            if keys_pressed[pygame.K_d]:
-                lao_rao += 10
-            if keys_pressed[pygame.K_a]:
-                lao_rao -= 10
-            if keys_pressed[pygame.K_w]:
-                cra_cau -= 10
-            if keys_pressed[pygame.K_s]:
-                cra_cau += 10
-            env.visualisation.rotate(lao_rao, cra_cau)
+        if args.no_vis:
+            trans = np.random.uniform(-5, 5)
+            rot = np.random.choice([0, math.pi / 2, math.pi, 3 * math.pi / 2])
+            action = (trans, rot)
         else:
-            if keys_pressed[pygame.K_w]:
-                camera_trans += np.array([0.0, 0.0, 200.0])
-            if keys_pressed[pygame.K_s]:
-                camera_trans -= np.array([0.0, 0.0, 200.0])
-            if keys_pressed[pygame.K_a]:
-                camera_trans -= np.array([200.0, 0.0, 0.0])
-            if keys_pressed[pygame.K_d]:
-                camera_trans += np.array([200.0, 0.0, 0.0])
-            env.visualisation.translate(camera_trans)
-        if keys_pressed[pygame.K_e]:
-            env.visualisation.zoom(1000)
-        if keys_pressed[pygame.K_q]:
-            env.visualisation.zoom(-1000)
-
-        action = (trans, rot)
+            pygame.event.get()
+            keys_pressed = pygame.key.get_pressed()
+            if keys_pressed[pygame.K_ESCAPE]:
+                break
+            if keys_pressed[pygame.K_UP]:
+                trans += 5
+            if keys_pressed[pygame.K_DOWN]:
+                trans -= 5
+            if keys_pressed[pygame.K_LEFT]:
+                rot += np.pi / 2
+            if keys_pressed[pygame.K_RIGHT]:
+                rot -= np.pi / 2
+            if keys_pressed[pygame.K_r]:
+                lao_rao = 0
+                cra_cau = 0
+                if keys_pressed[pygame.K_d]:
+                    lao_rao += 10
+                if keys_pressed[pygame.K_a]:
+                    lao_rao -= 10
+                if keys_pressed[pygame.K_w]:
+                    cra_cau -= 10
+                if keys_pressed[pygame.K_s]:
+                    cra_cau += 10
+                env.visualisation.rotate(lao_rao, cra_cau)
+            else:
+                if keys_pressed[pygame.K_w]:
+                    camera_trans += np.array([0.0, 0.0, 200.0])
+                if keys_pressed[pygame.K_s]:
+                    camera_trans -= np.array([0.0, 0.0, 200.0])
+                if keys_pressed[pygame.K_a]:
+                    camera_trans -= np.array([200.0, 0.0, 0.0])
+                if keys_pressed[pygame.K_d]:
+                    camera_trans += np.array([200.0, 0.0, 0.0])
+                env.visualisation.translate(camera_trans)
+            if keys_pressed[pygame.K_e]:
+                env.visualisation.zoom(1000)
+            if keys_pressed[pygame.K_q]:
+                env.visualisation.zoom(-1000)
+            action = (trans, rot)
+        
+        t0 = perf_counter()
         obs, reward_value, terminal, truncation, info = env.step(action=action)
+
         check_insertion_alignment("step")
+
+        t1 = perf_counter()
         env.render()
+
         n_steps += 1
         print({"steps": n_steps, "reward": reward_value, "terminal": terminal, "info": info})
-        if keys_pressed[pygame.K_RETURN]:
+        
+        if not args.no_vis and keys_pressed[pygame.K_RETURN]:
             env.reset()
             n_steps = 0
             insertion_warning_active = False
@@ -449,7 +492,6 @@ def main() -> None:
         _ = perf_counter() - start_time
 
     env.close()
-
 
 if __name__ == "__main__":
     main()

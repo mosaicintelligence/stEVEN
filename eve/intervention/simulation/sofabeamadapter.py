@@ -15,13 +15,11 @@ class SofaBeamAdapter(Simulation):
         self,
         friction: float = 0.1,
         dt_simulation: float = 0.006,
-        random_initial_rotation: bool = False,
     ) -> None:
         self.logger = logging.getLogger(self.__module__)
 
         self.friction = friction
         self.dt_simulation = dt_simulation
-        self.random_initial_rotation = random_initial_rotation
 
         self.root = None
         self.camera = None
@@ -54,8 +52,6 @@ class SofaBeamAdapter(Simulation):
         self._dof_positions = None
         self._inserted_lengths = None
         self._rotations = None
-        self._raw_dof_positions = None
-        self._base_node_index = None
 
     @property
     def dof_positions(self) -> np.ndarray:
@@ -81,16 +77,18 @@ class SofaBeamAdapter(Simulation):
         for _ in range(n_steps):
             inserted_lengths = self.inserted_lengths
 
-            if len(inserted_lengths) > 1:
+            if len(inserted_lengths) > 1: # Multiple devices
                 max_id = np.argmax(inserted_lengths)
                 new_length = inserted_lengths + action[:, 0] * self.dt_simulation
                 new_max_id = np.argmax(new_length)
-                if max_id != new_max_id:
+                if max_id != new_max_id: # Check if another device would become longest
+                    # Cancel movement of the device that would no longer be longest
                     if abs(action[max_id, 0]) > abs(action[new_max_id, 0]):
                         action[new_max_id, 0] = 0.0
                     else:
                         action[max_id, 0] = 0.0
 
+            # Apply action
             x_tip = self._instruments_combined.m_ircontroller.xtip
             tip_rot = self._instruments_combined.m_ircontroller.rotationInstrument
             for i in range(action.shape[0]):
@@ -105,11 +103,9 @@ class SofaBeamAdapter(Simulation):
         x = self._instruments_combined.m_ircontroller.xtip.value
         self._instruments_combined.m_ircontroller.xtip.value = x * 0.0
         ri = self._instruments_combined.m_ircontroller.rotationInstrument.value
-        if self.random_initial_rotation:
-            ri = self._rng.random(ri.shape) * 2 * np.pi
-        else:
-            ri = np.zeros_like(ri)
+        ri = self._rng.random(ri.shape) * 2 * np.pi
         self._instruments_combined.m_ircontroller.rotationInstrument.value = ri
+        self._instruments_combined.m_ircontroller.indexFirstNode.value = 0
         self._sofa.Simulation.reset(self.root)
         self._update_properties()
 
@@ -119,6 +115,7 @@ class SofaBeamAdapter(Simulation):
         insertion_direction,
         mesh_path,
         devices: List[Device],
+        centerlines=None,
         coords_high: Optional[Tuple[float, float, float]] = None,
         coords_low: Optional[Tuple[float, float, float]] = None,
         vessel_visual_path: Optional[str] = None,
@@ -164,21 +161,11 @@ class SofaBeamAdapter(Simulation):
                     self.target_size,
                     self.interim_target_size,
                     devices=devices,
+                    centerlines=centerlines,
                     vessel_visual_path=vessel_visual_path,
                 )
 
             self._sofa.Simulation.init(self.root)
-            self._base_node_index = None
-            base_indices = getattr(
-                self._instruments_combined.m_ircontroller, "indexFirstNode", None
-            )
-            if base_indices is not None:
-                try:
-                    indices_array = np.asarray(base_indices.value, dtype=int).reshape(-1)
-                    if indices_array.size > 0:
-                        self._base_node_index = int(indices_array[0])
-                except Exception as exc:  # pragma: no cover - defensive
-                    self.logger.debug("Failed to parse base node index: %s", exc)
             self._insertion_point = insertion_point
             self._insertion_direction = insertion_direction
             self._mesh_path = mesh_path
@@ -187,29 +174,15 @@ class SofaBeamAdapter(Simulation):
             self._vessel_visual_path = vessel_visual_path
             self.simulation_error = False
             self.logger.debug("Sofa Initialized")
-        if self._base_node_index is None:
-            base_indices = getattr(
-                self._instruments_combined.m_ircontroller, "indexFirstNode", None
-            )
-            if base_indices is not None:
-                try:
-                    indices_array = np.asarray(base_indices.value, dtype=int).reshape(-1)
-                    if indices_array.size > 0:
-                        self._base_node_index = int(indices_array[0])
-                except Exception as exc:  # pragma: no cover - defensive
-                    self.logger.debug("Failed to parse base node index: %s", exc)
         self._update_properties()
 
     def _update_properties(self) -> None:
-        raw_positions = self._instruments_combined.DOFs.position.value[:, 0:3]
-        tracking = raw_positions[::-1]
+        tracking = self._instruments_combined.DOFs.position.value[:, 0:3][::-1]
         if np.any(np.isnan(tracking[0])):
             self.logger.warning("Tracking is NAN, resetting devices")
             self.simulation_error = True
-            self.reset_devices()
-            raw_positions = self._instruments_combined.DOFs.position.value[:, 0:3]
-            tracking = raw_positions[::-1]
-        self._raw_dof_positions = deepcopy(raw_positions)
+            # self.reset_devices()
+            tracking = self._instruments_combined.DOFs.position.value[:, 0:3][::-1]
         self._dof_positions = deepcopy(tracking)
         self._inserted_lengths = deepcopy(
             self._instruments_combined.m_ircontroller.xtip.value
@@ -217,30 +190,6 @@ class SofaBeamAdapter(Simulation):
         self._rotations = deepcopy(
             self._instruments_combined.m_ircontroller.rotationInstrument.value
         )
-
-    def measure_insertion_offset(self):
-        """Return distance between simulated base nodes and configured insertion.
-
-        The method returns ``None`` until the simulation exposes DOF positions.
-        Otherwise it yields a tuple ``(distance, closest_point, expected_point)``
-        where ``distance`` is the Euclidean distance between the configured
-        insertion point and the closest available node in the current wire mesh.
-        """
-
-        if self._raw_dof_positions is None:
-            return None
-        insertion_point = np.asarray(self._insertion_point, dtype=float)
-        if insertion_point.size == 0:
-            return None
-        dofs = np.asarray(self._raw_dof_positions, dtype=float)
-        if self._base_node_index is not None and 0 <= self._base_node_index < dofs.shape[0]:
-            base_point = dofs[self._base_node_index]
-            distance = float(np.linalg.norm(base_point - insertion_point))
-            return (distance, base_point, insertion_point)
-
-        distances = np.linalg.norm(dofs - insertion_point, axis=1)
-        closest_idx = int(np.argmin(distances))
-        return (float(distances[closest_idx]), dofs[closest_idx], insertion_point)
 
     def _load_plugins(self):
         self.root.addObject("RequiredPlugin", name="BeamAdapter")
@@ -331,66 +280,47 @@ class SofaBeamAdapter(Simulation):
                 )
             
             # Create material sections (SOFA 2.5 requirement)
-            # If device is non-procedural (mesh-based), create a single straight section
-            if not sofa_device.is_a_procedural_shape:
-                total_beams = self._to_int_sum(sofa_device.density_of_beams)
-                # ensure a positive length for the rod section (avoid zero-length errors)
-                straight_len = sofa_device.length if (hasattr(sofa_device, 'length') and sofa_device.length and sofa_device.length > 0) else 1.0
-                topo_lines.addObject(
-                    "RodStraightSection",
-                    name="StraightSection_" + device.name,
-                    length=straight_len,
-                    radius=sofa_device.radius,
-                    youngModulus=sofa_device.young_modulus,
-                    massDensity=sofa_device.mass_density,
+            # Convert density_of_beams to sum for straight section
+            straight_beams = self._to_int_sum(sofa_device.density_of_beams)
+            
+            # Create straight section material
+            straight_section = topo_lines.addObject(
+                "RodStraightSection",
+                name="StraightSection_" + device.name,
+                length=sofa_device.straight_length,
+                radius=sofa_device.radius,
+                youngModulus=sofa_device.young_modulus,
+                massDensity=sofa_device.mass_density,
+                poissonRatio=sofa_device.poisson_ratio,
+                nbBeams=straight_beams,
+                nbEdgesCollis=self._to_int_sum(sofa_device.num_edges_collis),
+                nbEdgesVisu=sofa_device.num_edges,
+            )
+            
+            # Create spire section material if there is a spire (curved tip)
+            spire_length = sofa_device.length - sofa_device.straight_length
+            materials_ref = "@StraightSection_" + device.name
+            total_device_beams = straight_beams
+            
+            if spire_length > 0 and sofa_device.spire_diameter > 0:
+                spire_section = topo_lines.addObject(
+                    "RodSpireSection",
+                    name="SpireSection_" + device.name,
+                    length=spire_length,
+                    radius=sofa_device.radius_extremity,
+                    youngModulus=sofa_device.young_modulus_extremity,
+                    massDensity=sofa_device.mass_density_extremity,
                     poissonRatio=sofa_device.poisson_ratio,
-                    nbBeams=total_beams,
+                    spireDiameter=sofa_device.spire_diameter,
+                    spireHeight=sofa_device.spire_height,
+                    nbBeams=straight_beams,  # Use same beam count as straight for simplicity
                     nbEdgesCollis=self._to_int_sum(sofa_device.num_edges_collis),
                     nbEdgesVisu=sofa_device.num_edges,
                 )
-                materials_ref = "@StraightSection_" + device.name
-                device_beam_counts.append(total_beams)
-            else:
-                # Procedural shapes: prefer provided straightLength, but fall back to the full length
-                straight_beams = self._to_int_sum(sofa_device.density_of_beams)
-                straight_length_val = (
-                    sofa_device.straight_length
-                    if (hasattr(sofa_device, 'straight_length') and sofa_device.straight_length and sofa_device.straight_length > 0)
-                    else sofa_device.length
-                )
-                topo_lines.addObject(
-                    "RodStraightSection",
-                    name="StraightSection_" + device.name,
-                    length=straight_length_val,
-                    radius=sofa_device.radius,
-                    youngModulus=sofa_device.young_modulus,
-                    massDensity=sofa_device.mass_density,
-                    poissonRatio=sofa_device.poisson_ratio,
-                    nbBeams=straight_beams,
-                    nbEdgesCollis=self._to_int_sum(sofa_device.num_edges_collis),
-                    nbEdgesVisu=sofa_device.num_edges,
-                )
-                spire_length = sofa_device.length - straight_length_val
-                materials_ref = "@StraightSection_" + device.name
-                total_device_beams = straight_beams
-                if spire_length > 0 and getattr(sofa_device, "spire_diameter", 0) > 0:
-                    topo_lines.addObject(
-                        "RodSpireSection",
-                        name="SpireSection_" + device.name,
-                        length=spire_length,
-                        radius=sofa_device.radius_extremity,
-                        youngModulus=sofa_device.young_modulus_extremity,
-                        massDensity=sofa_device.mass_density_extremity,
-                        poissonRatio=sofa_device.poisson_ratio,
-                        spireDiameter=sofa_device.spire_diameter,
-                        spireHeight=sofa_device.spire_height,
-                        nbBeams=straight_beams,
-                        nbEdgesCollis=self._to_int_sum(sofa_device.num_edges_collis),
-                        nbEdgesVisu=sofa_device.num_edges,
-                    )
-                    materials_ref += " @SpireSection_" + device.name
-                    total_device_beams += straight_beams
-                device_beam_counts.append(total_device_beams)
+                materials_ref += " @SpireSection_" + device.name
+                total_device_beams += straight_beams  # Spire adds another section
+            
+            device_beam_counts.append(total_device_beams)
             
             # Create WireRestShape and reference the materials
             wire_rest_shape = topo_lines.addObject(
@@ -467,10 +397,7 @@ class SofaBeamAdapter(Simulation):
                 force_field, "massDensity", device.sofa_device.mass_density
             )
             x_tip.append(0.0)
-            if self.random_initial_rotation:
-                rotations.append(self._rng.random() * math.pi * 2)
-            else:
-                rotations.append(0.0)
+            rotations.append(self._rng.random() * math.pi * 2)
             interpolations += "Interpol_" + device.name + " "
         x_tip[0] += 0.1
         interpolations = interpolations[:-1]
@@ -499,9 +426,7 @@ class SofaBeamAdapter(Simulation):
         self._set_component_data(constraint_correction, "wire_optimization", True)
         self._set_component_data(constraint_correction, "printLog", False)
         instruments_combined.addObject(
-            "FixedConstraint",
-            indices="@m_ircontroller.indexFirstNode",
-            name="FixedConstraint",
+            "FixedConstraint", indices=0, name="FixedConstraint"
         )
         rest_shape_force_field = instruments_combined.addObject(
             "RestShapeSpringsForceField",
@@ -535,6 +460,7 @@ class SofaBeamAdapter(Simulation):
         target_size: float,
         interim_target_size: float,
         devices: List[Device],
+        centerlines=None,
         vessel_visual_path: Optional[str] = None,
     ):
         coords_low = np.array(coords_low)
@@ -571,6 +497,32 @@ class SofaBeamAdapter(Simulation):
             visu_vessel.addObject(
             "BarycentricMapping", input="@../dofs", output="@Visual"
             )
+
+        # Centerlines (optional, for debugging insertion / alignment)
+        if centerlines is not None:
+            centerlines = np.asarray(centerlines, dtype=float)
+            if centerlines.ndim == 2 and centerlines.shape[0] > 1:
+                cl_node = self.root.addChild("Centerlines")
+                cl_node.addObject(
+                    "MechanicalObject",
+                    name="mo",
+                    position=centerlines.tolist(),
+                )
+                edges = [[i, i + 1] for i in range(centerlines.shape[0] - 1)]
+                cl_node.addObject("EdgeSetTopologyContainer", edges=edges)
+                cl_node.addObject("EdgeSetGeometryAlgorithms", template="Vec3d")
+                cl_visu = cl_node.addChild("Visual")
+                cl_visu.addObject(
+                    "OglModel",
+                    name="Visual",
+                    edges="@../EdgeSetTopologyContainer.edges",
+                    color=[0.1, 0.8, 1.0, 0.6],
+                )
+                cl_visu.addObject(
+                    "IdentityMapping",
+                    input="@../mo",
+                    output="@Visual",
+                )
 
         # Devices
         for device in devices:

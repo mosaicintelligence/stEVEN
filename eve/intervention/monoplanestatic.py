@@ -114,6 +114,7 @@ class MonoPlaneStatic(SimulatedIntervention):
             insertion_direction=ip_dir,
             mesh_path=self.vessel_tree.mesh_path,
             devices=self.devices,
+            centerlines=[branch.coordinates for branch in self.vessel_tree.branches],
             coords_low=self.vessel_tree.coordinate_space.low,
             coords_high=self.vessel_tree.coordinate_space.high,
             vessel_visual_path=self.vessel_tree.visu_mesh_path,

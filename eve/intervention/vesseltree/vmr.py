@@ -6,7 +6,7 @@ import pyvista as pv
 
 from .vesseltree import VesselTree, Insertion, gym
 from .util.branch import Branch, calc_branching, rotate_branches
-from .util import calc_insertion
+from .util import calc_insertion, calc_insertion_from_branch_start
 from .util.meshing import get_temp_mesh_path
 from .util.vmrdownload import download_vmr_files
 
@@ -83,7 +83,7 @@ class VMR(VesselTree):
         self,
         model: str,
         insertion_vessel_name: str,
-        insertion_point_idx: int,
+        insertion_point_idx: int, # Index of insertion point on chosen branch
         insertion_direction_idx_diff: int,
         approx_branch_radii: Union[List[float], float],
         rotate_yzx_deg: Optional[Tuple[float, float, float]] = None,
@@ -139,6 +139,7 @@ class VMR(VesselTree):
             self.insertion_point_idx,
             self.insertion_point_idx + self.insertion_direction_idx_diff,
         )
+        # ip, ip_dir = calc_insertion_from_branch_start(insert_vessel)
         self.insertion = Insertion(ip, ip_dir)
         self.branching_points = calc_branching(self.branches, self.approx_branch_radii)
         self._mesh_path = None
