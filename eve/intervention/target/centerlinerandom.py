@@ -38,6 +38,11 @@ class CenterlineRandom(Target):
 
     def reset(self, episode_nr=0, seed=None) -> None:
         if seed is not None:
+            # Cast numpy integers to native int for random.Random compatibility.
+            try:
+                seed = int(seed)
+            except (TypeError, ValueError):
+                pass
             self._rng = random.Random(seed)
         if self._branches_initialized != self.vessel_tree.branches:
             self._init_centerline_point_cloud()

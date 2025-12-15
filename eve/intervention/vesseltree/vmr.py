@@ -103,6 +103,7 @@ class VMR(VesselTree):
         rotate_yzx_deg: Optional[Tuple[float, float, float]] = None,
         check_if_points_in_mesh: bool = True,
         auto_choose_insertion_endpoint: bool = True,
+        randomize_insertion_each_reset: bool = False,
     ) -> None:
         self.model = model
         self.insertion_point_idx = insertion_point_idx
@@ -112,6 +113,7 @@ class VMR(VesselTree):
         self.rotate_yzx_deg = rotate_yzx_deg
         self.check_if_points_in_mesh = check_if_points_in_mesh
         self.auto_choose_insertion_endpoint = auto_choose_insertion_endpoint
+        self.randomize_insertion_each_reset = randomize_insertion_each_reset
 
         self._model_folder = download_vmr_files(model)
         self.mesh_folder = os.path.join(self._model_folder, "Meshes")
@@ -126,6 +128,7 @@ class VMR(VesselTree):
         self.centerline_coordinates = None
 
         self._mesh_path = None
+        self._np_random = np.random.default_rng()
 
     @property
     def mesh_path(self) -> str:
@@ -138,7 +141,9 @@ class VMR(VesselTree):
         return self.mesh_path
 
     def reset(self, episode_nr=0, seed: int = None) -> None:
-        if self.branches is None:
+        if seed is not None:
+            self._np_random = np.random.default_rng(seed)
+        if self.branches is None or self.randomize_insertion_each_reset:
             self._make_branches()
 
     def _make_branches(self):
@@ -148,6 +153,9 @@ class VMR(VesselTree):
         self.coordinate_space = self._calc_coord_space(branches)
         centerline_coordinates = [branch.coordinates for branch in branches]
         self.centerline_coordinates = np.concatenate(centerline_coordinates)
+
+        if self.randomize_insertion_each_reset:
+            self.insertion_vessel_name = self._np_random.choice([branch.name for branch in branches])
 
         insert_vessel = self[self.insertion_vessel_name]
         raw_insert_branch = self._load_raw_insertion_branch(insert_vessel.name)
@@ -201,7 +209,13 @@ class VMR(VesselTree):
         return gym.spaces.Box(low=low, high=high)
 
     def _pick_insertion_endpoint(self, branch: Branch) -> Tuple[int, int]:
-        """Choose the branch end closest to the bounding box as insertion point."""
+        """Choose a boundary-adjacent insertion point that points inward.
+
+        We pick the endpoint closest to the overall vascular bounding box (so the
+        device starts near the periphery). The insertion direction is chosen to point
+        along the branch toward increasing distance from the boundary, favouring
+        moving into the vascular system instead of into a dead end.
+        """
         coords = branch.coordinates
         n_points = coords.shape[0]
         if n_points < 2:
@@ -210,15 +224,39 @@ class VMR(VesselTree):
         low = self.coordinate_space.low
         high = self.coordinate_space.high
 
-        def boundary_distance(pt: np.ndarray) -> float:
-            return float(np.min(np.concatenate([pt - low, high - pt])))
+        # Pre-compute boundary distance for all points (small = close to edge).
+        boundary_dist = np.minimum(coords - low, high - coords)
+        boundary_dist = np.min(boundary_dist, axis=1)
 
-        first_dist = boundary_distance(coords[0])
-        last_dist = boundary_distance(coords[-1])
+        def inward_dir_idx(start_idx: int, step: int) -> int:
+            """Pick a direction index that moves away from the boundary."""
+            idx = start_idx + step
+            # Walk inward until distance increases; cap to branch bounds.
+            while 0 <= idx < n_points and boundary_dist[idx] <= boundary_dist[start_idx]:
+                idx += step
+            # Fallback to the immediate neighbour if we ran out of points.
+            if idx < 0 or idx >= n_points:
+                idx = np.clip(start_idx + step, 0, n_points - 1)
+            return idx
 
-        if last_dist < first_dist:
-            return n_points - 1, n_points - 2
-        return 0, 1
+        def candidate(idx: int, step: int) -> Tuple[float, float, Tuple[int, int]]:
+            dir_idx = inward_dir_idx(idx, step)
+            # Remaining length in chosen direction (prefer longer reachable path).
+            if step > 0:
+                segment = coords[idx:]
+            else:
+                segment = coords[idx::-1]
+            seg_len = float(np.sum(np.linalg.norm(np.diff(segment, axis=0), axis=1)))
+            return boundary_dist[idx], -seg_len, (idx, dir_idx)
+
+        # Lower boundary distance is better; longer interior path is better (hence -seg_len).
+        candidates = [
+            candidate(0, 1),
+            candidate(n_points - 1, -1),
+        ]
+        candidates.sort(key=lambda x: (x[0], x[1]))
+        _, _, (best_idx, best_dir_idx) = candidates[0]
+        return best_idx, best_dir_idx
 
     def _load_raw_insertion_branch(self, branch_name: str) -> Branch:
         """Load the chosen insertion branch without any mesh/bounds filtering."""

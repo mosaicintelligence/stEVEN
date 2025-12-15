@@ -28,13 +28,23 @@ class MonoPlaneStatic(SimulatedIntervention):
         self.target = target
         self.fluoroscopy = fluoroscopy
         self.stop_device_at_tree_end = stop_device_at_tree_end
-        self.normlaize_action = normalize_action
+        self.normalize_action = normalize_action
         self.simulation = simulation
         self._np_random = np.random.default_rng()
 
         self.velocity_limits = np.array(
-            [device.velocity_limit for device in self.devices]
+            [device.velocity_limit for device in self.devices], dtype=np.float32
         )
+        # Replace any non-finite entries with a sane default to keep action_space bounded.
+        if not np.all(np.isfinite(self.velocity_limits)):
+            self.velocity_limits = np.nan_to_num(
+                self.velocity_limits, nan=0.0, posinf=1e3, neginf=1e3
+            )
+        self.velocity_limits = np.clip(self.velocity_limits, -1e6, 1e6)
+        limits = np.abs(self.velocity_limits).reshape(-1)
+        print(f"[Intervention] velocity limits: {limits}")
+        self._action_space = gym.spaces.Box(low=-limits, high=limits, dtype=np.float32)
+        print(f"[Intervention] action_space low={self._action_space.low}, high={self._action_space.high}")
         self.last_action = np.zeros_like(self.velocity_limits)
         self._device_lengths_inserted = self.simulation.inserted_lengths
         self._device_rotations = self.simulation.rotations
@@ -58,11 +68,9 @@ class MonoPlaneStatic(SimulatedIntervention):
     @property
     def action_space(self) -> gym.spaces.Box:
         if self.normalize_action:
-            high = np.ones_like(self.velocity_limits)
-            space = gym.spaces.Box(low=-high, high=high)
-        else:
-            space = gym.spaces.Box(low=-self.velocity_limits, high=self.velocity_limits)
-        return space
+            high = np.ones_like(self.velocity_limits, dtype=np.float32)
+            return gym.spaces.Box(low=-high, high=high, dtype=np.float32)
+        return self._action_space
 
     def step(self, action: np.ndarray) -> None:
         action = np.array(action).reshape(self.velocity_limits.shape)

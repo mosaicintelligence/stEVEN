@@ -5,19 +5,34 @@ channels:
 dependencies:
   # Windows/macOS/Linux all have py310/py311/py312/py313 builds on 25.06.
   - python=3.12
+  - pip
 
   # SOFA 25.06 core app + Python bindings + rods plugin
   - sofa-app=25.06.00
   - sofa-python3=25.06.00
   - sofa-beamadapter=25.06.00
 
-  # Your science stack
+  # Science stack
   - numpy
   - scipy
   - pandas
   - pyvista
   - pybind11=2.12
-  - pip
+
+  # Visualization
+  - vtk
+  - PyQt5
+
+  # autonomy stack
+  # - torch
+  # - torchvision
+  # - torchaudio
+
+  - pip:
+      - stable-baselines3[extra] # installs relevant torch/cuda versions
+      - tensorboard
+  
+
 
 # set up by running command:
 #   conda env create -f sofa_env_25.yml
