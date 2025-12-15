@@ -38,7 +38,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--direction-delta", type=int, default=2, help="Offset for insertion direction index.")
     parser.add_argument("--insert-idx", type=int, default=1, help="Insertion point index on branch.")
     parser.add_argument("--no-mesh-check", action="store_true", help="Disable mesh containment filtering.")
-    parser.add_argument("--frame-stack", type=int, default=1, help="Number of stacked observations for temporal context.")
+    parser.add_argument(
+        "--frame-stack",
+        type=int,
+        default=1,
+        help="Number of stacked observations for temporal context (SAC will auto-bump to >=4).",
+    )
     parser.add_argument(
         "--recurrent",
         action="store_true",
@@ -76,8 +81,12 @@ def build_envs(args: argparse.Namespace):
         use_subproc_envs=args.subproc_envs,
         **env_kwargs,
     )
-    if args.frame_stack and args.frame_stack > 1:
-        vec_env = VecFrameStack(vec_env, n_stack=args.frame_stack)
+    frame_stack = args.frame_stack
+    if args.algo == "sac" and frame_stack < 4:
+        frame_stack = 4  # Give SAC more temporal context by default.
+        print(f"[Env] bumping frame_stack to {frame_stack} for SAC to provide temporal context.")
+    if frame_stack and frame_stack > 1:
+        vec_env = VecFrameStack(vec_env, n_stack=frame_stack)
     vec_env = VecMonitor(vec_env, filename=str(args.log_dir / "monitor"))
 
     # Ensure finite action bounds on the VecEnv (work around any wrapper issues).
@@ -95,8 +104,8 @@ def build_envs(args: argparse.Namespace):
         use_subproc_envs=args.subproc_envs,
         **env_kwargs,
     )
-    if args.frame_stack and args.frame_stack > 1:
-        eval_env = VecFrameStack(eval_env, n_stack=args.frame_stack)
+    if frame_stack and frame_stack > 1:
+        eval_env = VecFrameStack(eval_env, n_stack=frame_stack)
     eval_env = VecMonitor(eval_env, filename=str(args.log_dir / "monitor_eval"))
     return vec_env, eval_env
 
@@ -144,7 +153,7 @@ def make_model(args: argparse.Namespace, env: gym.Env):
             )
         return PPO("MlpPolicy", **common_kwargs, n_steps=2048 // args.num_envs, batch_size=64, gae_lambda=0.95)
     if args.recurrent:
-        raise ValueError("Recurrent flag is only supported for PPO at the moment.")
+        raise ValueError("Recurrent flag is only supported for PPO at the moment (SAC uses frame stacking for context).")
     return SAC(
         "MlpPolicy",
         **common_kwargs,
