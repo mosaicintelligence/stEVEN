@@ -232,7 +232,7 @@ def _build_env(
     )
 
     target_reward = eve.reward.TargetReached(intervention=intervention, factor=2.0)
-    path_delta = eve.reward.PathLengthDelta(pathfinder=pathfinder, factor=0.1)
+    path_delta = eve.reward.PathLengthDelta(pathfinder=pathfinder, factor=0.05)
     tip_progress = eve.reward.TipToTargetDistDelta(
         factor=0.1, intervention=intervention, interim_target=None
     )
