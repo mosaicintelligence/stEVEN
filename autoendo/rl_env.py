@@ -28,6 +28,7 @@ from .autonomy_test import (
     ensure_model_available,
     list_branch_names,
 )
+from .obs_local_patch import LocalCenterlinePatch
 
 
 class LocalCenterlinePatch(EveObservation):

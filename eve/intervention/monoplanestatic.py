@@ -139,6 +139,11 @@ class MonoPlaneStatic(SimulatedIntervention):
                 vec = target_coord - ip_pos
                 norm = np.linalg.norm(vec)
                 path_dir = vec / norm if norm > 1e-6 else None
+            else:
+                # Ensure it is oriented toward the target, not away.
+                vec = target_coord - ip_pos
+                if np.dot(path_dir, vec) < 0:
+                    path_dir = -path_dir
             if path_dir is not None:
                 self.vessel_tree.insertion = Insertion(ip_pos, path_dir)
                 self.simulation.reset(

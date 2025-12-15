@@ -15,6 +15,11 @@ policy inputs:
 - action space: translation and rotation at base of wire
 - reward: reaching target, path length penalty
 
+demo run with policy inference:
+python3 stEVEN/autoendo/autonomy_test.py /
+--policy-path outputs/autoendo/sb3_logs/ppo_2025-12-15_02-18/sb3_model_ppo_2025-12-15_02-18.zip /
+--policy-type sb3 --policy-algo ppo
+
 """
 
 from __future__ import annotations
@@ -35,6 +40,7 @@ import gymnasium as gym
 import torch
 
 import eve
+from autoendo.obs_local_patch import LocalCenterlinePatch
 from eve.visualisation.sofapygame import SofaPygame
 
 
@@ -317,6 +323,22 @@ def parse_args() -> argparse.Namespace:
         default="auto",
         help="Device override for loaded policies (auto/cpu/cuda).",
     )
+    parser.add_argument(
+        "--no-local-patch",
+        action="store_true",
+        help="Disable local centerline patch observation (for backward compatibility with older policies).",
+    )
+    parser.add_argument(
+        "--truncate-obs",
+        action="store_true",
+        help="If policy obs dim differs, truncate/pad flattened obs to match policy (backward compatibility).",
+    )
+    parser.add_argument(
+        "--patch-size",
+        type=int,
+        default=5,
+        help="Number of centerline points in the local patch observation.",
+    )
     return parser.parse_args()
 
 
@@ -328,6 +350,25 @@ def _build_policy_runner(env: eve.Env, args: argparse.Namespace):
     flat_space = gym.spaces.flatten_space(env.observation_space)
     action_low = env.action_space.low
     action_high = env.action_space.high
+    policy_obs_dim = flat_space.shape[0]
+    warned_mismatch = {"warned": False}
+
+    def _maybe_adjust(flat: np.ndarray, target_dim: int) -> np.ndarray:
+        if not args.truncate_obs:
+            return flat
+        if flat.shape[0] == target_dim:
+            return flat
+        if not warned_mismatch["warned"]:
+            print(
+                f"[autoendo] obs dim mismatch: env {flat.shape[0]} vs policy {target_dim}; "
+                "truncating/padding for compatibility."
+            )
+            warned_mismatch["warned"] = True
+        if flat.shape[0] > target_dim:
+            return flat[:target_dim]
+        padded = np.zeros((target_dim,), dtype=flat.dtype)
+        padded[: flat.shape[0]] = flat
+        return padded
 
     policy_type = args.policy_type
     if policy_type is None:
@@ -340,9 +381,11 @@ def _build_policy_runner(env: eve.Env, args: argparse.Namespace):
             raise RuntimeError("stable-baselines3 not installed; cannot load SB3 policy.") from exc
         ModelCls = PPO if args.policy_algo == "ppo" else SAC
         model = ModelCls.load(args.policy_path, device=args.policy_device)
+        model_obs_dim = int(np.prod(model.observation_space.shape))
 
         def _run(obs: dict) -> np.ndarray:
             flat = flatten_obs(obs)
+            flat = _maybe_adjust(flat, model_obs_dim)
             action, _ = model.predict(flat, deterministic=args.policy_deterministic)
             return np.asarray(action, dtype=np.float32)
 
@@ -366,9 +409,11 @@ def _build_policy_runner(env: eve.Env, args: argparse.Namespace):
         policy.load_state_dict(ckpt["state_dict"])
         policy.to(device)
         policy.eval()
+        model_obs_dim = obs_dim
 
         def _run(obs: dict) -> np.ndarray:
             flat = flatten_obs(obs)
+            flat = _maybe_adjust(flat, model_obs_dim)
             obs_t = torch.as_tensor(flat, device=device, dtype=torch.float32).unsqueeze(0)
             action = policy.sample(obs_t).squeeze(0).cpu().numpy()
             action = np.clip(action, action_low, action_high)
@@ -490,10 +535,16 @@ def main() -> None:
         target_state, intervention
     )
     rotation = eve.observation.Rotations(intervention=intervention)
-
-    state = eve.observation.ObsDict(
-        {"position": position, "target": target_state, "rotation": rotation}
-    )
+    obs_dict = {"position": position, "target": target_state, "rotation": rotation}
+    if not args.no_local_patch:
+        local_patch = LocalCenterlinePatch(
+            intervention=intervention,
+            vessel_tree=vessel_tree,
+            k=args.patch_size,
+            radius_hint=args.branch_radius,
+        )
+        obs_dict["local_patch"] = local_patch
+    state = eve.observation.ObsDict(obs_dict)
 
     target_reward = eve.reward.TargetReached(
         intervention=intervention,
@@ -523,6 +574,7 @@ def main() -> None:
         start=start,
         pathfinder=pathfinder,
     )
+    env = gym.wrappers.FlattenObservation(env)
 
     policy_runner = _build_policy_runner(env, args)
 
