@@ -1,12 +1,16 @@
 # AutoEndo RL: Test, Train, Inference (Headless-Friendly)
 
-## Environment prep (virtual X/GL context needed atm)
-- sudo apt-get update && sudo apt-get install -y xvfb
+## Environment / Shell prep (virtual X/GL context needed atm)
+sudo apt-get update && sudo apt-get install -y xvfb
+sudo apt-get update && sudo apt-get install -y mesa-utils
 
-Run with xvfb:
-xvfb-run -s "-screen 0 1280x720x24" python stEVEN/autoendo/smoke_test_env.py --use-visualisation --model 0049_H_ABAO_AIOD --insert-vessel celiac_hepatic --steps 50
-Training similarly:
-xvfb-run -s "-screen 0 1280x720x24" python stEVEN/autoendo/train_sb3.py --algo sac --num-envs 1 --subproc-envs --use-visualisation --device cpu --total-steps 200000
+#### start Xvfb (TCP-only, works on VM)
+Xvfb :1 -screen 0 1280x720x24 -ac -nolisten unix -listen tcp &
+export DISPLAY=127.0.0.1:1
+export SDL_VIDEODRIVER=x11
+export SDL_AUDIODRIVER=pulse
+export LIBGL_ALWAYS_SOFTWARE=1
+
 
 working usage:
 
@@ -14,7 +18,13 @@ python stEVEN/autoendo/train_sb3.py   --algo sac   --num-envs 6   --use-visualis
 
 python stEVEN/autoendo/train_sb3.py   --algo ppo  --recurrent   --num-envs 6   --use-visualisation   --subproc-envs  --total-steps 50000
 
-run training report:
+
+
+## Fallback method: 
+Run with xvfb:
+xvfb-run -s "-screen 0 1280x720x24" python stEVEN/autoendo/smoke_test_env.py --use-visualisation --model 0049_H_ABAO_AIOD --insert-vessel celiac_hepatic --steps 50
+Training similarly:
+xvfb-run -s "-screen 0 1280x720x24" python stEVEN/autoendo/train_sb3.py --algo sac --num-envs 1 --subproc-envs --use-visualisation --device cpu --total-steps 200000
 
 
 ## Quick smoke test (env stability)
