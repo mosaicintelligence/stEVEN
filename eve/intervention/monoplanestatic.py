@@ -6,6 +6,7 @@ import numpy as np
 from .intervention import SimulatedIntervention
 from .target import Target
 from .vesseltree import VesselTree
+from .vesseltree.vesseltree import Insertion
 from .vesseltree.vesseltree import at_tree_end
 from .fluoroscopy import SimulatedFluoroscopy
 from .device import Device
@@ -129,6 +130,27 @@ class MonoPlaneStatic(SimulatedIntervention):
         )
         target_seed = None if seed is None else self._np_random.integers(0, 2**31)
         self.target.reset(episode_number, target_seed)
+        # After target is known, re-aim insertion direction toward the target along straight line.
+        try:
+            target_coord = np.array(self.target.coordinates3d, dtype=np.float32)
+            vec = target_coord - ip_pos
+            norm = np.linalg.norm(vec)
+            if norm > 1e-6:
+                new_dir = vec / norm
+                self.vessel_tree.insertion = Insertion(ip_pos, new_dir)
+                self.simulation.reset(
+                    insertion_point=ip_pos,
+                    insertion_direction=new_dir,
+                    mesh_path=self.vessel_tree.mesh_path,
+                    devices=self.devices,
+                    centerlines=[branch.coordinates for branch in self.vessel_tree.branches],
+                    coords_low=self.vessel_tree.coordinate_space.low,
+                    coords_high=self.vessel_tree.coordinate_space.high,
+                    vessel_visual_path=self.vessel_tree.visu_mesh_path,
+                )
+                print(f"[Insertion] reoriented toward target dir={np.round(new_dir,3).tolist()}")
+        except Exception as exc:  # pragma: no cover
+            print(f"[Insertion] failed to reorient toward target: {exc}")
         self.fluoroscopy.reset(episode_number)
         self.last_action *= 0.0
 

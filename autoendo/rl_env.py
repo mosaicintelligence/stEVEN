@@ -20,6 +20,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
 import eve
 from eve.visualisation import VisualisationDummy, SofaPygame
 from eve.observation.observation import Observation as EveObservation
+from gymnasium import Wrapper as GymWrapper
 
 from .autonomy_test import (
     _default_vmr_pool,
@@ -112,6 +113,26 @@ class LocalCenterlinePatch(EveObservation):
         self.step()
 
 
+class RewardComponentWrapper(GymWrapper):
+    """Attach reward component values to info for logging."""
+
+    def __init__(self, env, components: dict[str, any]):
+        super().__init__(env)
+        self._components = components
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        try:
+            info = dict(info)
+            info["reward_components"] = {k: getattr(c, "reward", None) for k, c in self._components.items()}
+        except Exception as exc:  # pragma: no cover
+            print(f"[reward_components] failed to attach: {exc}")
+        return obs, reward, terminated, truncated, info
+
+    def reset(self, **kwargs):
+        return self.env.reset(**kwargs)
+
+
 def _build_env(
     *,
     model: Optional[str],
@@ -192,6 +213,7 @@ def _build_env(
     )
     start = eve.start.MaxDeviceLength(intervention=intervention, max_length=1000)
     pathfinder = eve.pathfinder.BruteForceBFS(intervention=intervention)
+    _debug_branch_paths(vessel_tree, insertion_vessel, target_branch_list)
 
     position = eve.observation.Tracking2D(intervention=intervention, n_points=5)
     position = eve.observation.wrapper.NormalizeTracking2DEpisode(position, intervention)
@@ -235,6 +257,7 @@ def _build_env(
     )
     env = gym.wrappers.FlattenObservation(env)
     env = gym.wrappers.ClipAction(env)
+    env = RewardComponentWrapper(env, components={"target": target_reward, "path": path_delta, "tip": tip_progress})
     limits = np.abs(np.array(intervention.velocity_limits, dtype=np.float32)).reshape(-1)
     env.action_space = gym.spaces.Box(low=-limits, high=limits, dtype=np.float32)
     print(f"[Env] obs_dim={env.observation_space.shape[0]} action_dim={env.action_space.shape[0]}")
@@ -329,7 +352,7 @@ def make_vec_env(
     use_subproc_envs: bool = False, # auto-detect if num_envs>1
     randomize_insertion_per_episode: bool = True,
     use_visualisation: bool = False,
-    patch_size: int = 5,
+    patch_size: int = 10,
 ) -> VecEnv:
     def make_one(rank: int, base_seed: Optional[int]) -> Callable[[], gym.Env]:
         def _init() -> gym.Env:
@@ -360,3 +383,55 @@ def make_vec_env(
     if use_subproc_envs or num_envs > 1:
         return SubprocVecEnv(env_fns, start_method="spawn")
     return DummyVecEnv(env_fns)
+
+
+def _debug_branch_paths(vessel_tree, insertion_vessel: str, target_branches: list[str]) -> None:
+    """Compute a simple branch graph and Dijkstra reachability for debugging."""
+
+    def build_graph():
+        adj: dict[str, list[tuple[str, float]]] = {}
+        branches = vessel_tree.branches
+        if branches is None:
+            return {}
+        name_to_branch = {b.name: b for b in branches}
+        for b in branches:
+            adj[b.name] = []
+        branching_points = getattr(vessel_tree, "branching_points", None) or []
+        for bp in branching_points:
+            conns = list(bp.connections)
+            for i in range(len(conns)):
+                for j in range(i + 1, len(conns)):
+                    a = conns[i].name
+                    b = conns[j].name
+                    la = name_to_branch[a].length
+                    lb = name_to_branch[b].length
+                    w = float((la + lb) / 2.0)
+                    adj[a].append((b, w))
+                    adj[b].append((a, w))
+        return adj
+
+    try:
+        graph = build_graph()
+        if not graph or insertion_vessel not in graph:
+            print(f"[paths] graph missing insertion branch or empty (has={len(graph)})")
+            return
+        dist: dict[str, float] = {insertion_vessel: 0.0}
+        heap = [(0.0, insertion_vessel)]
+        while heap:
+            d, u = heapq.heappop(heap)
+            if d > dist[u]:
+                continue
+            for v, w in graph.get(u, []):
+                nd = d + w
+                if v not in dist or nd < dist[v]:
+                    dist[v] = nd
+                    heapq.heappush(heap, (nd, v))
+        reachable_targets = [t for t in target_branches if t in dist]
+        unreachable = [t for t in target_branches if t not in dist]
+        n_edges = sum(len(v) for v in graph.values()) // 2
+        print(
+            f"[paths] nodes={len(graph)} edges={n_edges} reachable={len(dist)} "
+            f"targets_reachable={len(reachable_targets)} unreachable={unreachable}"
+        )
+    except Exception as exc:  # pragma: no cover
+        print(f"[paths] error computing graph/dijkstra: {exc}")

@@ -15,7 +15,7 @@ from typing import Optional
 import gymnasium as gym
 import numpy as np
 from stable_baselines3 import PPO, SAC
-from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.callbacks import CheckpointCallback, BaseCallback, CallbackList
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import VecMonitor, VecFrameStack
 import datetime
@@ -155,6 +155,32 @@ def make_model(args: argparse.Namespace, env: gym.Env):
     )
 
 
+class RewardComponentCallback(BaseCallback):
+    def __init__(self):
+        super().__init__()
+        self._acc = {}
+        self._count = 0
+
+    def _on_step(self) -> bool:
+        infos = self.locals.get("infos", [])
+        for info in infos:
+            comp = info.get("reward_components")
+            if comp:
+                for k, v in comp.items():
+                    if v is None:
+                        continue
+                    self._acc[k] = self._acc.get(k, 0.0) + float(v)
+                self._count += 1
+        return True
+
+    def _on_rollout_end(self) -> None:
+        if self._count > 0:
+            for k, v in self._acc.items():
+                self.logger.record(f"rollout/rew_{k}", v / self._count)
+        self._acc = {}
+        self._count = 0
+
+
 def main() -> None:
     args = parse_args()
     datetime_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -168,7 +194,9 @@ def main() -> None:
     model = make_model(args, vec_env)
 
     checkpoint_cb = CheckpointCallback(save_freq=5000, save_path=args.log_dir, name_prefix=f"{args.algo}_ckpt")
-    model.learn(total_timesteps=args.total_steps, callback=checkpoint_cb, progress_bar=True)
+    comp_cb = RewardComponentCallback()
+    cb_list = CallbackList([checkpoint_cb, comp_cb])
+    model.learn(total_timesteps=args.total_steps, callback=cb_list, progress_bar=True)
     model.save(str(args.save_path))
 
     if args.eval_episodes > 0:
