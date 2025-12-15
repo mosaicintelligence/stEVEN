@@ -501,7 +501,7 @@ def main() -> None:
     )
     path_delta = eve.reward.PathLengthDelta(
         pathfinder=pathfinder,
-        factor=0.01,
+        factor=0.1,
     )
     tip_progress = eve.reward.TipToTargetDistDelta(
         factor=0.1, intervention=intervention, interim_target=None

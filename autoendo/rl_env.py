@@ -12,6 +12,7 @@ from typing import Callable, Iterable, Optional
 import os
 import random
 import warnings
+import heapq
 
 import gymnasium as gym
 import numpy as np
@@ -230,8 +231,8 @@ def _build_env(
         {"position": position, "target": target_state, "rotation": rotation, "local_patch": local_patch}
     )
 
-    target_reward = eve.reward.TargetReached(intervention=intervention, factor=1.0)
-    path_delta = eve.reward.PathLengthDelta(pathfinder=pathfinder, factor=0.01)
+    target_reward = eve.reward.TargetReached(intervention=intervention, factor=2.0)
+    path_delta = eve.reward.PathLengthDelta(pathfinder=pathfinder, factor=0.1)
     tip_progress = eve.reward.TipToTargetDistDelta(
         factor=0.1, intervention=intervention, interim_target=None
     )
