@@ -21,9 +21,10 @@ class TipToTargetDistDelta(Reward):
 
     def step(self) -> None:
         tip = self.intervention.fluoroscopy.tracking3d[0]
-        if self.interim_target.coordinates3d is not None:
+        target = None
+        if self.interim_target is not None and self.interim_target.coordinates3d is not None:
             target = self.interim_target.coordinates3d
-        else:
+        if target is None:
             target = self.intervention.target.coordinates3d
 
         dist = np.linalg.norm(tip - target)

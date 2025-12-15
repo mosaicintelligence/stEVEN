@@ -19,12 +19,97 @@ from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
 
 import eve
 from eve.visualisation import VisualisationDummy, SofaPygame
+from eve.observation.observation import Observation as EveObservation
 
 from .autonomy_test import (
     _default_vmr_pool,
     ensure_model_available,
     list_branch_names,
 )
+
+
+class LocalCenterlinePatch(EveObservation):
+    """Local centerline patch around the tip, plus radius and target direction."""
+
+    def __init__(
+        self,
+        intervention,
+        vessel_tree,
+        k: int = 5,
+        radius_hint: float = 0.0,
+        name: str = "local_patch",
+    ) -> None:
+        self.name = name
+        self.intervention = intervention
+        self.vessel_tree = vessel_tree
+        self.k = k
+        self.radius_hint = radius_hint
+        self._printed_error = False
+        self.obs = None
+
+    @property
+    def space(self) -> gym.Space:
+        # k points * 3 + 1 radius + 3 target dir
+        size = self.k * 3 + 4
+        low = np.full((size,), -1e6, dtype=np.float32)
+        high = np.full((size,), 1e6, dtype=np.float32)
+        return gym.spaces.Box(low=low, high=high, dtype=np.float32)
+
+    def _tip_and_tangent(self):
+        tracking = self.intervention.fluoroscopy.tracking3d
+        tip = np.array(tracking[0], dtype=np.float32)
+        if len(tracking) > 1:
+            tangent = np.array(tracking[0] - tracking[1], dtype=np.float32)
+        else:
+            tangent = np.array([0.0, 0.0, 1.0], dtype=np.float32)
+        norm = np.linalg.norm(tangent)
+        if norm < 1e-6:
+            tangent = np.array([0.0, 0.0, 1.0], dtype=np.float32)
+        else:
+            tangent = tangent / norm
+        return tip, tangent
+
+    def _nearest_points(self, tip: np.ndarray) -> np.ndarray:
+        if getattr(self.vessel_tree, "centerline_coordinates", None) is not None:
+            coords = self.vessel_tree.centerline_coordinates
+        else:
+            coords = np.concatenate([b.coordinates for b in self.vessel_tree.branches])
+        dists = np.linalg.norm(coords - tip, axis=1)
+        idx = int(np.argmin(dists))
+        half = self.k // 2
+        start = max(0, idx - half)
+        end = min(coords.shape[0], start + self.k)
+        start = max(0, end - self.k)
+        patch = coords[start:end]
+        if patch.shape[0] < self.k:
+            pad = np.repeat(patch[-1][None, :], self.k - patch.shape[0], axis=0)
+            patch = np.vstack([patch, pad])
+        return patch
+
+    def step(self) -> None:
+        try:
+            tip, _ = self._tip_and_tangent()
+            patch = self._nearest_points(tip) - tip  # translate to tip frame
+            target = np.array(self.intervention.target.coordinates3d, dtype=np.float32)
+            tvec = target - tip
+            tnorm = np.linalg.norm(tvec)
+            if tnorm > 1e-6:
+                tdir = tvec / tnorm
+            else:
+                tdir = np.zeros(3, dtype=np.float32)
+            radius = float(self.radius_hint)
+            obs_vec = np.concatenate([patch.flatten(), np.array([radius], dtype=np.float32), tdir])
+            self.obs = obs_vec.astype(np.float32)
+        except Exception as exc:  # pragma: no cover
+            if not self._printed_error:
+                print(f"[local_patch] error computing patch: {exc}")
+                self._printed_error = True
+            size = self.k * 3 + 4
+            self.obs = np.zeros((size,), dtype=np.float32)
+
+    def reset(self, episode_nr: int = 0) -> None:
+        self._printed_error = False
+        self.step()
 
 
 def _build_env(
@@ -43,6 +128,7 @@ def _build_env(
     image_frequency: float,
     randomize_insertion_per_episode: bool,
     use_visualisation: bool = False,
+    patch_size: int = 5,
 ) -> gym.Env:
     def _configure_headless_display() -> None:
         """Set SDL env for headless SofaPygame if a display is not available."""
@@ -112,11 +198,22 @@ def _build_env(
     target_state = eve.observation.Target2D(intervention=intervention)
     target_state = eve.observation.wrapper.NormalizeTracking2DEpisode(target_state, intervention)
     rotation = eve.observation.Rotations(intervention=intervention)
-    obs = eve.observation.ObsDict({"position": position, "target": target_state, "rotation": rotation})
+    local_patch = LocalCenterlinePatch(
+        intervention=intervention,
+        vessel_tree=vessel_tree,
+        k=patch_size,
+        radius_hint=branch_radius,
+    )
+    obs = eve.observation.ObsDict(
+        {"position": position, "target": target_state, "rotation": rotation, "local_patch": local_patch}
+    )
 
     target_reward = eve.reward.TargetReached(intervention=intervention, factor=1.0)
     path_delta = eve.reward.PathLengthDelta(pathfinder=pathfinder, factor=0.01)
-    reward = eve.reward.Combination([target_reward, path_delta])
+    tip_progress = eve.reward.TipToTargetDistDelta(
+        factor=0.1, intervention=intervention, interim_target=None
+    )
+    reward = eve.reward.Combination([target_reward, path_delta, tip_progress])
 
     terminal = eve.terminal.TargetReached(intervention=intervention)
     truncation = eve.truncation.MaxSteps(200)
@@ -140,6 +237,7 @@ def _build_env(
     env = gym.wrappers.ClipAction(env)
     limits = np.abs(np.array(intervention.velocity_limits, dtype=np.float32)).reshape(-1)
     env.action_space = gym.spaces.Box(low=-limits, high=limits, dtype=np.float32)
+    print(f"[Env] obs_dim={env.observation_space.shape[0]} action_dim={env.action_space.shape[0]}")
 
     return env
 
@@ -178,6 +276,7 @@ def make_env(
     randomize_insertion_per_episode: bool = True,
     use_visualisation: bool = False,
     noop_action: bool = False,
+    patch_size: int = 5,
 ) -> gym.Env:
     env = _build_env(
         model=model,
@@ -194,6 +293,7 @@ def make_env(
         image_frequency=image_frequency,
         randomize_insertion_per_episode=randomize_insertion_per_episode,
         use_visualisation=use_visualisation,
+        patch_size=patch_size,
     )
     if noop_action:
         # Freeze actions to zeros for debugging stability.
@@ -229,6 +329,7 @@ def make_vec_env(
     use_subproc_envs: bool = False, # auto-detect if num_envs>1
     randomize_insertion_per_episode: bool = True,
     use_visualisation: bool = False,
+    patch_size: int = 5,
 ) -> VecEnv:
     def make_one(rank: int, base_seed: Optional[int]) -> Callable[[], gym.Env]:
         def _init() -> gym.Env:
@@ -249,6 +350,7 @@ def make_vec_env(
                 seed=env_seed,
                 randomize_insertion_per_episode=randomize_insertion_per_episode,
                 use_visualisation=use_visualisation,
+                patch_size=patch_size,
             )
             return env
 

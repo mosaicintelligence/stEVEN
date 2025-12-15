@@ -8,13 +8,13 @@ xvfb-run -s "-screen 0 1280x720x24" python stEVEN/autoendo/smoke_test_env.py --u
 Training similarly:
 xvfb-run -s "-screen 0 1280x720x24" python stEVEN/autoendo/train_sb3.py --algo sac --num-envs 1 --subproc-envs --use-visualisation --device cpu --total-steps 200000
 
-python stEVEN/autoendo/train_sb3.py \
-  --algo sac \
-  --num-envs 1 \
-  --use-visualisation \
-  --subproc-envs \
-  --device cpu \
-  --total-steps 200000
+working usage:
+
+python stEVEN/autoendo/train_sb3.py   --algo sac   --num-envs 6   --use-visualisation   --subproc-envs  --total-steps 50000
+
+python stEVEN/autoendo/train_sb3.py   --algo ppo  --recurrent   --num-envs 6   --use-visualisation   --subproc-envs  --total-steps 50000
+
+run training report:
 
 
 ## Quick smoke test (env stability)

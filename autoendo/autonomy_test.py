@@ -503,7 +503,10 @@ def main() -> None:
         pathfinder=pathfinder,
         factor=0.01,
     )
-    reward = eve.reward.Combination([target_reward, path_delta])
+    tip_progress = eve.reward.TipToTargetDistDelta(
+        factor=0.1, intervention=intervention, interim_target=None
+    )
+    reward = eve.reward.Combination([target_reward, path_delta, tip_progress])
 
     target_reached = eve.terminal.TargetReached(intervention=intervention)
     max_steps = eve.truncation.MaxSteps(200)

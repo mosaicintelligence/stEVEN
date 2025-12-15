@@ -150,8 +150,8 @@ def make_model(args: argparse.Namespace, env: gym.Env):
         **common_kwargs,
         buffer_size=500_000,
         batch_size=256,
-        train_freq=1,
-        gradient_steps=1,
+        train_freq=2,
+        gradient_steps=2,
     )
 
 
