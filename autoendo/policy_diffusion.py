@@ -61,7 +61,9 @@ class DiffusionPolicy(nn.Module):
         )
         self.time_embed_dim = time_embed_dim
 
-    def predict_noise(self, obs: torch.Tensor, action_noisy: torch.Tensor, timesteps: torch.Tensor) -> torch.Tensor:
+    def predict_noise(
+        self, obs: torch.Tensor, action_noisy: torch.Tensor, timesteps: torch.Tensor
+    ) -> torch.Tensor:
         t_emb = _time_embedding(timesteps, self.time_embed_dim)
         model_input = torch.cat([obs, action_noisy, t_emb], dim=-1)
         return self.net(model_input)
@@ -77,7 +79,12 @@ class DiffusionPolicy(nn.Module):
         return F.mse_loss(pred, noise)
 
     @torch.no_grad()
-    def sample(self, obs: torch.Tensor, steps: Optional[int] = None, clamp: Optional[tuple[float, float]] = None) -> torch.Tensor:
+    def sample(
+        self,
+        obs: torch.Tensor,
+        steps: Optional[int] = None,
+        clamp: Optional[tuple[float, float]] = None,
+    ) -> torch.Tensor:
         steps = steps or self.timesteps
         batch_size = obs.shape[0]
         action = torch.randn(batch_size, self.action_dim, device=obs.device)

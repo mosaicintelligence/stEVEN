@@ -53,9 +53,7 @@ def chs_point_normal(
         n(d_mean, d_sigma) for d_mean, d_sigma in zip(direction_mean, direction_sigma)
     ]
     d_coords_direction = np.array(d_coords_direction, dtype=np.float32)
-    magnitude = n(
-        direction_magnitude_mean_and_sigma[0], direction_magnitude_mean_and_sigma[1]
-    )
+    magnitude = n(direction_magnitude_mean_and_sigma[0], direction_magnitude_mean_and_sigma[1])
     d_coords = d_coords_direction / np.linalg.norm(d_coords_direction) * magnitude
     dydx = [
         d_coords[0],
@@ -67,9 +65,7 @@ def chs_point_normal(
     return CHSPoint(y, dydx)
 
 
-def chs_to_cl_points(
-    points: List[CHSPoint], resolution: float
-) -> Tuple[np.ndarray, np.ndarray]:
+def chs_to_cl_points(points: List[CHSPoint], resolution: float) -> Tuple[np.ndarray, np.ndarray]:
     y = np.array([point.y for point in points])
     dydx = np.array([point.dydx for point in points])
     x = [0]
@@ -95,9 +91,7 @@ def chs_to_cl_points(
             tracking_point = current_point[0:3] - unit_vector * interpolation_distance
             diameter = (
                 current_point[3]
-                - (current_point[3] - last_point[3])
-                / dist_between_points
-                * interpolation_distance
+                - (current_point[3] - last_point[3]) / dist_between_points * interpolation_distance
             )
             new_point = np.append(tracking_point, diameter)
             tracking_state = np.append(tracking_state, [new_point], axis=0)

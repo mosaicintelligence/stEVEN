@@ -97,9 +97,7 @@ class SofaPygame(Visualisation):
         self._pygame = self._pygame or importlib.import_module("pygame")
         if not self._initialized:
             self._pygame.display.init()
-            flags = (
-                self._pygame.DOUBLEBUF | self._pygame.OPENGL | self._pygame.RESIZABLE
-            )
+            flags = self._pygame.DOUBLEBUF | self._pygame.OPENGL | self._pygame.RESIZABLE
             self._pygame.display.set_mode(self.display_size, flags)
             self._initialized = True
 
@@ -164,9 +162,7 @@ class SofaPygame(Visualisation):
         camera.lookAt = self._initial_look_at
         self.rotate(0, 0)
         target = self.intervention.target.coordinates3d
-        target = tracking3d_to_vessel_cs(
-            target, fluoroscopy.image_rot_zx, fluoroscopy.image_center
-        )
+        target = tracking3d_to_vessel_cs(target, fluoroscopy.image_rot_zx, fluoroscopy.image_center)
         simulation.target_node.MechanicalObject.translation = [
             target[0],
             target[1],
@@ -207,10 +203,7 @@ class SofaPygame(Visualisation):
         position = camera.position
         look_at = camera.lookAt
         direction = look_at - position
-        direction = (
-            direction
-            / (direction[0] ** 2 + direction[1] ** 2 + direction[2] ** 2) ** 0.5
-        )
+        direction = direction / (direction[0] ** 2 + direction[1] ** 2 + direction[2] ** 2) ** 0.5
         position += direction * velocity * dt
         self._distance -= velocity * dt
         camera.position = position

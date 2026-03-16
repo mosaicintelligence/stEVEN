@@ -44,9 +44,7 @@ class Tracking2D(Observation):
                 length = np.linalg.norm(next_point - point)
                 dist_to_point = self.resolution - acc_dist
                 acc_dist += length
-                while (
-                    acc_dist >= self.resolution and len(tracking_state) < self.n_points
-                ):
+                while acc_dist >= self.resolution and len(tracking_state) < self.n_points:
                     unit_vector = (next_point - point) / length
                     tracking_point = point + unit_vector * dist_to_point
                     tracking_state.append(tracking_point)

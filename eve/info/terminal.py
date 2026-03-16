@@ -11,4 +11,3 @@ class TerminalInfo(Info):
     @property
     def info(self) -> Dict[str, Any]:
         return {self.name: self.done.terminal}
-

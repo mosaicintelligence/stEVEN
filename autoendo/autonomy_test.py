@@ -403,7 +403,9 @@ def _build_policy_runner(env: eve.Env, args: argparse.Namespace):
         action_dim = int(ckpt.get("action_dim", env.action_space.shape[0]))
         timesteps = int(ckpt.get("timesteps", 16))
         device = torch.device(
-            args.policy_device if args.policy_device != "auto" else ("cuda" if torch.cuda.is_available() else "cpu")
+            args.policy_device
+            if args.policy_device != "auto"
+            else ("cuda" if torch.cuda.is_available() else "cpu")
         )
         policy = DiffusionPolicy(obs_dim=obs_dim, action_dim=action_dim, timesteps=timesteps)
         policy.load_state_dict(ckpt["state_dict"])
@@ -419,7 +421,9 @@ def _build_policy_runner(env: eve.Env, args: argparse.Namespace):
             action = np.clip(action, action_low, action_high)
             return action.astype(np.float32)
 
-        print(f"[autoendo] Loaded diffusion policy from {args.policy_path} (timesteps={timesteps}).")
+        print(
+            f"[autoendo] Loaded diffusion policy from {args.policy_path} (timesteps={timesteps})."
+        )
         return _run
 
     raise ValueError(f"Unknown policy_type {policy_type}")
@@ -469,7 +473,7 @@ def main() -> None:
         rotate_yzx_deg=tuple(args.rotate) if args.rotate else None,
         check_if_points_in_mesh=not args.no_mesh_check,
     )
-    
+
     # Improved JShaped device instantiation with parameter overrides from args if present
     # # Allow for future extensibility: override device parameters via args if needed
     device_kwargs = {}
@@ -531,9 +535,7 @@ def main() -> None:
     position = eve.observation.Tracking2D(intervention=intervention, n_points=5)
     position = eve.observation.wrapper.NormalizeTracking2DEpisode(position, intervention)
     target_state = eve.observation.Target2D(intervention=intervention)
-    target_state = eve.observation.wrapper.NormalizeTracking2DEpisode(
-        target_state, intervention
-    )
+    target_state = eve.observation.wrapper.NormalizeTracking2DEpisode(target_state, intervention)
     rotation = eve.observation.Rotations(intervention=intervention)
     obs_dict = {"position": position, "target": target_state, "rotation": rotation}
     if not args.no_local_patch:
@@ -662,7 +664,7 @@ def main() -> None:
             if keys_pressed[pygame.K_q]:
                 env.visualisation.zoom(-1000)
             action = (trans, rot)
-        
+
         t0 = perf_counter()
         obs, reward_value, terminal, truncation, info = env.step(action=action)
 
@@ -673,7 +675,7 @@ def main() -> None:
 
         n_steps += 1
         print({"steps": n_steps, "reward": reward_value, "terminal": terminal, "info": info})
-        
+
         if policy_runner is not None and (terminal or truncation):
             obs, _ = env.reset()
             n_steps = 0
@@ -689,6 +691,7 @@ def main() -> None:
         _ = perf_counter() - start_time
 
     env.close()
+
 
 if __name__ == "__main__":
     main()

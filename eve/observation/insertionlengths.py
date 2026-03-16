@@ -5,9 +5,7 @@ from ..intervention import Intervention
 
 
 class InsertionLengths(Observation):
-    def __init__(
-        self, intervention: Intervention, name: str = "inserted_lengths"
-    ) -> None:
+    def __init__(self, intervention: Intervention, name: str = "inserted_lengths") -> None:
         self.name = name
         self.intervention = intervention
         self.obs = None

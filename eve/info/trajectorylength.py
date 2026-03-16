@@ -6,9 +6,7 @@ from ..intervention import Intervention
 
 
 class TrajectoryLength(Info):
-    def __init__(
-        self, intervention: Intervention, name: str = "trajectory length"
-    ) -> None:
+    def __init__(self, intervention: Intervention, name: str = "trajectory length") -> None:
         super().__init__(name)
         self.intervention = intervention
         self.trajectory_length = 0.0

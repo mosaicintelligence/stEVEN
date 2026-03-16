@@ -17,8 +17,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--steps", type=int, default=50, help="Number of random steps to run.")
     parser.add_argument("--model", type=str, default=None, help="Optional fixed VMR model id.")
-    parser.add_argument("--insert-vessel", type=str, default=None, help="Optional fixed insertion vessel.")
-    parser.add_argument("--vmr-pool", type=str, default=None, help="Override VMR pool (defaults to data/vmr).")
+    parser.add_argument(
+        "--insert-vessel", type=str, default=None, help="Optional fixed insertion vessel."
+    )
+    parser.add_argument(
+        "--vmr-pool", type=str, default=None, help="Override VMR pool (defaults to data/vmr)."
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--sim-dt", type=float, default=0.02)
     parser.add_argument("--image-frequency", type=float, default=5.0)
@@ -27,9 +31,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--branch-radius", type=float, default=5.0)
     parser.add_argument("--direction-delta", type=int, default=2)
     parser.add_argument("--insert-idx", type=int, default=1)
-    parser.add_argument("--action-scale", type=float, default=0.2, help="Scale factor applied to sampled actions.")
-    parser.add_argument("--zero-actions", action="store_true", help="Use zero actions (no motion) to test stability.")
-    parser.add_argument("--use-visualisation", action="store_true", help="Use SofaPygame visualisation (set SDL_VIDEODRIVER=dummy for headless).")
+    parser.add_argument(
+        "--action-scale", type=float, default=0.2, help="Scale factor applied to sampled actions."
+    )
+    parser.add_argument(
+        "--zero-actions",
+        action="store_true",
+        help="Use zero actions (no motion) to test stability.",
+    )
+    parser.add_argument(
+        "--use-visualisation",
+        action="store_true",
+        help="Use SofaPygame visualisation (set SDL_VIDEODRIVER=dummy for headless).",
+    )
     return parser.parse_args()
 
 
@@ -49,7 +63,7 @@ def main() -> None:
         seed=args.seed,
         randomize_insertion_per_episode=True,
         use_visualisation=args.use_visualisation,
-        noop_action=False
+        noop_action=False,
     )
     obs, _ = env.reset()
     print("[smoke] action_space", env.action_space)

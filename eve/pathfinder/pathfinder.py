@@ -16,9 +16,7 @@ class Pathfinder(EveObject, ABC):
 
     @property
     def path_branching_points2d(self) -> np.ndarray:
-        return self.intervention.fluoroscopy.tracking3d_to_2d(
-            self.path_branching_points3d
-        )
+        return self.intervention.fluoroscopy.tracking3d_to_2d(self.path_branching_points3d)
 
     @abstractmethod
     def step(self) -> None:

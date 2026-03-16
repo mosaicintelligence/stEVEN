@@ -23,8 +23,7 @@ class InsertionLengthRelativeDelta(Reward):
     def step(self) -> None:
         inserted_lengths = self.intervention.device_lengths_inserted
         relative_length = (
-            inserted_lengths[self.device_id]
-            - inserted_lengths[self.relative_to_device_id]
+            inserted_lengths[self.device_id] - inserted_lengths[self.relative_to_device_id]
         )
 
         if self.upper_clearance > relative_length > self.lower_clearance:

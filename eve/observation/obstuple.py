@@ -6,9 +6,7 @@ from ..util import EveObject
 
 
 class ObsTuple(EveObject, ABC):
-    def __init__(
-        self, observations: List[Observation], name: str = "observation_tuple"
-    ) -> None:
+    def __init__(self, observations: List[Observation], name: str = "observation_tuple") -> None:
         self.name = name
         self.obs: Tuple[np.ndarray] = ()
         self.observations = observations

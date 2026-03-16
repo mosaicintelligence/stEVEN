@@ -33,9 +33,7 @@ class Branch(EveObject):
 
     @property
     def length(self) -> float:
-        return np.sum(
-            np.linalg.norm(self.coordinates[:-1] - self.coordinates[1:], axis=1)
-        )
+        return np.sum(np.linalg.norm(self.coordinates[:-1] - self.coordinates[1:], axis=1))
 
     def in_branch(self, points: np.ndarray, radius: float) -> np.ndarray:
         if points.ndim == 1:
@@ -65,9 +63,7 @@ class Branch(EveObject):
             end_idx -= idx_dir
 
         partial_branch = self.coordinates[start_idx : end_idx + idx_dir : idx_dir]
-        path = np.concatenate(
-            [start.reshape(1, 3), partial_branch, end.reshape(1, 3)], axis=0
-        )
+        path = np.concatenate([start.reshape(1, 3), partial_branch, end.reshape(1, 3)], axis=0)
         return path
 
 
@@ -152,9 +148,7 @@ def calc_branching(branches: List[Branch], radii: Union[float, List[float]]):
             if other_branch == main_branch:
                 continue
 
-            points_in_main_branch = main_branch.in_branch(
-                other_branch.coordinates, main_radius
-            )
+            points_in_main_branch = main_branch.in_branch(other_branch.coordinates, main_radius)
             if np.any(points_in_main_branch):
                 idxs = np.argwhere(points_in_main_branch)
                 for idx in idxs:
@@ -207,9 +201,7 @@ def _consolidate_branching_points(raw_branching_points: List[BranchingPoint]):
         branching_point = raw_branching_points.pop(-1)
         to_average = [branching_point]
         for i, other_branching_point in enumerate(raw_branching_points):
-            if set(other_branching_point.connections) == set(
-                branching_point.connections
-            ):
+            if set(other_branching_point.connections) == set(branching_point.connections):
                 # add connections of branching point to other branching point
                 to_average.append(other_branching_point)
 
@@ -235,9 +227,7 @@ def _consolidate_branching_points(raw_branching_points: List[BranchingPoint]):
             distance = np.linalg.norm(
                 branching_point.coordinates - other_branching_point.coordinates
             )
-            check_distance = (
-                distance < branching_point.radius + other_branching_point.radius
-            )
+            check_distance = distance < branching_point.radius + other_branching_point.radius
 
             if check_distance:
                 # add connections of branching point to other branching point
@@ -276,9 +266,7 @@ def scale_branches_xyz(
     return tuple(new_branches)
 
 
-def scale_branches_d(
-    branches: List[BranchWithRadii], d_scaling: float
-) -> Tuple[BranchWithRadii]:
+def scale_branches_d(branches: List[BranchWithRadii], d_scaling: float) -> Tuple[BranchWithRadii]:
     new_branches = []
     for branch in branches:
         new_radii = branch.radii * d_scaling
@@ -322,9 +310,7 @@ def omit_branches_axis(
     new_branches = []
     for branch in branches:
         new_coordinates = np.delete(branch.coordinates, axis_to_remove, axis=1)
-        new_coordinates = np.insert(
-            new_coordinates, axis_to_remove, dummy_value, axis=1
-        )
+        new_coordinates = np.insert(new_coordinates, axis_to_remove, dummy_value, axis=1)
         if isinstance(branch, BranchWithRadii):
             new_branch = BranchWithRadii(branch.name, new_coordinates, branch.radii)
         else:

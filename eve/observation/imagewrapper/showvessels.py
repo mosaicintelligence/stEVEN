@@ -25,16 +25,12 @@ class ShowVessels(ImageState):
 
     def step(self) -> None:
         self.wrapped_image.step()
-        self.image = ImageChops.blend(
-            self.wrapped_image.image, self._overlay_image, 0.5
-        )
+        self.image = ImageChops.blend(self.wrapped_image.image, self._overlay_image, 0.5)
 
     def reset(self, episode_nr: int = 0) -> None:
         self.wrapped_image.reset(episode_nr)
         self._create_overlay_image()
-        self.image = ImageChops.blend(
-            self.wrapped_image.image, self._overlay_image, 0.5
-        )
+        self.image = ImageChops.blend(self.wrapped_image.image, self._overlay_image, 0.5)
 
     def _create_overlay_image(self):
         self._overlay_image = self.intervention.fluoroscopy.get_new_image(color=255)

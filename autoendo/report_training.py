@@ -60,7 +60,9 @@ def load_tensorboard_scalars(log_dir: Path) -> pd.DataFrame:
         if tag not in ea.Tags().get("scalars", []):
             return None
         scalars = ea.Scalars(tag)
-        return pd.DataFrame({"global_step": [s.step for s in scalars], tag: [s.value for s in scalars]})
+        return pd.DataFrame(
+            {"global_step": [s.step for s in scalars], tag: [s.value for s in scalars]}
+        )
 
     dfs = []
     for ef in sorted(event_files):
@@ -160,7 +162,10 @@ def plot_report(df: pd.DataFrame, log_dir: Path, out_path: Path, window: int) ->
         if tag in df:
             axes[2].plot(steps, df[tag], alpha=0.4, label=label, color=color)
             axes[2].plot(
-                steps, df[tag].rolling(window=window, min_periods=1).mean(), color=color, linestyle="--"
+                steps,
+                df[tag].rolling(window=window, min_periods=1).mean(),
+                color=color,
+                linestyle="--",
             )
             plotted = True
     if plotted:

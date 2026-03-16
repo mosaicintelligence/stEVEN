@@ -77,11 +77,11 @@ class SofaBeamAdapter(Simulation):
         for _ in range(n_steps):
             inserted_lengths = self.inserted_lengths
 
-            if len(inserted_lengths) > 1: # Multiple devices
+            if len(inserted_lengths) > 1:  # Multiple devices
                 max_id = np.argmax(inserted_lengths)
                 new_length = inserted_lengths + action[:, 0] * self.dt_simulation
                 new_max_id = np.argmax(new_length)
-                if max_id != new_max_id: # Check if another device would become longest
+                if max_id != new_max_id:  # Check if another device would become longest
                     # Cancel movement of the device that would no longer be longest
                     if abs(action[max_id, 0]) > abs(action[new_max_id, 0]):
                         action[new_max_id, 0] = 0.0
@@ -185,9 +185,7 @@ class SofaBeamAdapter(Simulation):
             # self.reset_devices()
             tracking = self._instruments_combined.DOFs.position.value[:, 0:3][::-1]
         self._dof_positions = deepcopy(tracking)
-        self._inserted_lengths = deepcopy(
-            self._instruments_combined.m_ircontroller.xtip.value
-        )
+        self._inserted_lengths = deepcopy(self._instruments_combined.m_ircontroller.xtip.value)
         self._rotations = deepcopy(
             self._instruments_combined.m_ircontroller.rotationInstrument.value
         )
@@ -237,9 +235,7 @@ class SofaBeamAdapter(Simulation):
             angleCone=0.02,
             name="localmindistance",
         )
-        self.root.addObject(
-            "CollisionResponse", response="FrictionContactConstraint"
-        )
+        self.root.addObject("CollisionResponse", response="FrictionContactConstraint")
         self.root.addObject(
             "LCPConstraintSolver",
             mu=friction,
@@ -269,9 +265,7 @@ class SofaBeamAdapter(Simulation):
 
     def _add_devices(self, devices: List[Device], insertion_point, insertion_direction):
         device_beam_counts = []  # Track total beams per device for topology
-        insertion_pose = self._calculate_insertion_pose(
-            insertion_point, insertion_direction
-        )
+        insertion_pose = self._calculate_insertion_pose(insertion_point, insertion_direction)
 
         for device in devices:
             sofa_device = device.sofa_device
@@ -282,11 +276,11 @@ class SofaBeamAdapter(Simulation):
                     filename=device.sofa_device.mesh_path,
                     name="loader",
                 )
-            
+
             # Create material sections (SOFA 2.5 requirement)
             # Convert density_of_beams to sum for straight section
             straight_beams = self._to_int_sum(sofa_device.density_of_beams)
-            
+
             # Create straight section material
             straight_section = topo_lines.addObject(
                 "RodStraightSection",
@@ -300,12 +294,12 @@ class SofaBeamAdapter(Simulation):
                 nbEdgesCollis=self._to_int_sum(sofa_device.num_edges_collis),
                 nbEdgesVisu=sofa_device.num_edges,
             )
-            
+
             # Create spire section material if there is a spire (curved tip)
             spire_length = sofa_device.length - sofa_device.straight_length
             materials_ref = "@StraightSection_" + device.name
             total_device_beams = straight_beams
-            
+
             if spire_length > 0 and sofa_device.spire_diameter > 0:
                 spire_section = topo_lines.addObject(
                     "RodSpireSection",
@@ -323,9 +317,9 @@ class SofaBeamAdapter(Simulation):
                 )
                 materials_ref += " @SpireSection_" + device.name
                 total_device_beams += straight_beams  # Spire adds another section
-            
+
             device_beam_counts.append(total_device_beams)
-            
+
             # Create WireRestShape and reference the materials
             wire_rest_shape = topo_lines.addObject(
                 "WireRestShape",
@@ -334,13 +328,9 @@ class SofaBeamAdapter(Simulation):
                 wireMaterials=materials_ref,
             )
             self._set_component_data(wire_rest_shape, "printLog", True)
-            topo_lines.addObject(
-                "EdgeSetTopologyContainer", name="meshLines_" + device.name
-            )
+            topo_lines.addObject("EdgeSetTopologyContainer", name="meshLines_" + device.name)
             topo_lines.addObject("EdgeSetTopologyModifier", name="Modifier")
-            topo_lines.addObject(
-                "EdgeSetGeometryAlgorithms", name="GeomAlgo", template="Rigid3d"
-            )
+            topo_lines.addObject("EdgeSetGeometryAlgorithms", name="GeomAlgo", template="Rigid3d")
             topo_lines.addObject(
                 "MechanicalObject", name="dofTopo_" + device.name, template="Rigid3d"
             )
@@ -367,7 +357,7 @@ class SofaBeamAdapter(Simulation):
             ymax=0,
             zmax=1,
             zmin=1,
-            p0=insertion_point, # Starting point, must be set!
+            p0=insertion_point,  # Starting point, must be set!
         )
         instruments_combined.addObject(
             "MechanicalObject",
@@ -380,32 +370,25 @@ class SofaBeamAdapter(Simulation):
         interpolations = ""
 
         for device in devices:
-            wire_rest_shape = (
-                "@../topolines_" + device.name + "/rest_shape_" + device.name
-            )
+            wire_rest_shape = "@../topolines_" + device.name + "/rest_shape_" + device.name
             interpolation = instruments_combined.addObject(
                 "WireBeamInterpolation",
                 name="Interpol_" + device.name,
                 WireRestShape=wire_rest_shape,
             )
-            self._set_component_data(
-                interpolation, "radius", device.sofa_device.radius
-            )
+            self._set_component_data(interpolation, "radius", device.sofa_device.radius)
             self._set_component_data(interpolation, "printLog", False)
             force_field = instruments_combined.addObject(
                 "AdaptiveBeamForceFieldAndMass",
                 name="ForceField_" + device.name,
                 interpolation="@Interpol_" + device.name,
             )
-            self._set_component_data(
-                force_field, "massDensity", device.sofa_device.mass_density
-            )
+            self._set_component_data(force_field, "massDensity", device.sofa_device.mass_density)
             x_tip.append(0.0)
             rotations.append(self._rng.random() * math.pi * 2)
             interpolations += "Interpol_" + device.name + " "
         x_tip[0] += 0.1
         interpolations = interpolations[:-1]
-
 
         controller = instruments_combined.addObject(
             "InterventionalRadiologyController",
@@ -437,14 +420,10 @@ class SofaBeamAdapter(Simulation):
             tip = np.round(dofs_pos[0][0:3], 2)
             print(f"[Sofa] DOFs base={base} tip={tip}")
 
-        constraint_correction = instruments_combined.addObject(
-            "LinearSolverConstraintCorrection"
-        )
+        constraint_correction = instruments_combined.addObject("LinearSolverConstraintCorrection")
         self._set_component_data(constraint_correction, "wire_optimization", True)
         self._set_component_data(constraint_correction, "printLog", False)
-        instruments_combined.addObject(
-            "FixedConstraint", indices=0, name="FixedConstraint"
-        )
+        instruments_combined.addObject("FixedConstraint", indices=0, name="FixedConstraint")
         rest_shape_force_field = instruments_combined.addObject(
             "RestShapeSpringsForceField",
             points="@m_ircontroller.indexFirstNode",
@@ -494,30 +473,27 @@ class SofaBeamAdapter(Simulation):
         if vessel_visual_path is None:
             visu_vessel = self._vessel_object.addChild("VisualVessel")
             visu_vessel.addObject(
-            "OglModel",
-            src="@../meshLoader",
-            color=[1.0, 0.0, 0.0, 0.3],
-            name="Visual",
+                "OglModel",
+                src="@../meshLoader",
+                color=[1.0, 0.0, 0.0, 0.3],
+                name="Visual",
             )
             visu_vessel.addObject(
-            "IdentityMapping",
-            input="@../dofs",
-            output="@Visual",
+                "IdentityMapping",
+                input="@../dofs",
+                output="@Visual",
             )
         else:
             visu_vessel = self._vessel_object.addChild("VisualVessel")
+            visu_vessel.addObject("MeshOBJLoader", name="loader", filename=vessel_visual_path)
             visu_vessel.addObject(
-            "MeshOBJLoader", name="loader", filename=vessel_visual_path
+                "OglModel", name="Visual", src="@loader", color=[1.0, 0.0, 0.0, 0.3]
             )
-            visu_vessel.addObject(
-            "OglModel", name="Visual", src="@loader", color=[1.0, 0.0, 0.0, 0.3]
-            )
-            visu_vessel.addObject(
-            "BarycentricMapping", input="@../dofs", output="@Visual"
-            )
+            visu_vessel.addObject("BarycentricMapping", input="@../dofs", output="@Visual")
 
         # Centerlines (optional, for debugging insertion / alignment)
         if centerlines is not None:
+
             def _add_centerline(polyline, idx: int):
                 polyline = np.asarray(polyline, dtype=float)
                 if polyline.ndim != 2 or polyline.shape[0] < 2:
@@ -555,9 +531,7 @@ class SofaBeamAdapter(Simulation):
             visu_node = self._instruments_combined.addChild("Visu_" + device.name)
             visu_node.activated = True
             visu_node.addObject("MechanicalObject", name="Quads")
-            visu_node.addObject(
-                "QuadSetTopologyContainer", name="Container_" + device.name
-            )
+            visu_node.addObject("QuadSetTopologyContainer", name="Container_" + device.name)
             visu_node.addObject("QuadSetTopologyModifier", name="Modifier")
             visu_node.addObject(
                 "QuadSetGeometryAlgorithms",
@@ -800,9 +774,7 @@ class SofaBeamAdapter(Simulation):
         except Exception:
             return default
 
-    def add_interim_targets(
-        self, positions: Optional[List[Tuple[float, float, float]]]
-    ):
+    def add_interim_targets(self, positions: Optional[List[Tuple[float, float, float]]]):
         if self.interim_target_node is None:
             return []
         if positions is None:
@@ -811,9 +783,7 @@ class SofaBeamAdapter(Simulation):
             if positions.ndim == 1:
                 positions_list = [positions.astype(float).tolist()]
             else:
-                positions_list = [
-                    np.asarray(p, dtype=float).tolist() for p in positions
-                ]
+                positions_list = [np.asarray(p, dtype=float).tolist() for p in positions]
         else:
             positions_list = [np.asarray(p, dtype=float).tolist() for p in positions]
         n_targets = min(len(positions_list), len(self.interim_targets))
@@ -831,9 +801,7 @@ class SofaBeamAdapter(Simulation):
         self.interim_targets.remove(interim_target)
 
     @staticmethod
-    def _calculate_insertion_pose(
-        insertion_point: np.ndarray, insertion_direction: np.ndarray
-    ):
+    def _calculate_insertion_pose(insertion_point: np.ndarray, insertion_direction: np.ndarray):
         # Align +X with the insertion direction using a robust quaternion build
         target = insertion_direction / np.linalg.norm(insertion_direction)
         source = np.array([1.0, 0.0, 0.0])

@@ -5,9 +5,7 @@ import eve
 if __name__ == "__main__":
     FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     logging.basicConfig(format=FORMAT, level=logging.DEBUG)
-    vessel_tree = eve.intervention.vesseltree.AorticArch(
-        eve.intervention.vesseltree.ArchType.VII
-    )
+    vessel_tree = eve.intervention.vesseltree.AorticArch(eve.intervention.vesseltree.ArchType.VII)
     device = eve.intervention.device.JShaped()
 
     simulation = eve.intervention.simulation.SofaBeamAdapter()
@@ -38,13 +36,9 @@ if __name__ == "__main__":
     pathfinder = eve.pathfinder.BruteForceBFS(intervention=intervention)
 
     position = eve.observation.Tracking2D(intervention=intervention, n_points=5)
-    position = eve.observation.wrapper.NormalizeTracking2DEpisode(
-        position, intervention
-    )
+    position = eve.observation.wrapper.NormalizeTracking2DEpisode(position, intervention)
     target_state = eve.observation.Target2D(intervention=intervention)
-    target_state = eve.observation.wrapper.NormalizeTracking2DEpisode(
-        target_state, intervention
-    )
+    target_state = eve.observation.wrapper.NormalizeTracking2DEpisode(target_state, intervention)
     rotation = eve.observation.Rotations(intervention=intervention)
 
     state = eve.observation.ObsDict(

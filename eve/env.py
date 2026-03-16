@@ -139,6 +139,7 @@ class EnvObsInfoOnly(gym.Env, EveObject):
     @property
     def action_space(self) -> gym.Space:
         return self.intervention.action_space
+
     def step(
         self,
         action: np.ndarray,

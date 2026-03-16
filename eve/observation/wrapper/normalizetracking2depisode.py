@@ -18,9 +18,7 @@ class NormalizeTracking2DEpisode(Normalize):
         self._normalization_space = None
 
     def reset(self, episode_nr: int = 0) -> None:
-        self._normalization_space = (
-            self.intervention.fluoroscopy.tracking2d_space_episode
-        )
+        self._normalization_space = self.intervention.fluoroscopy.tracking2d_space_episode
         return super().reset(episode_nr)
 
     def _normalize(self, obs: np.ndarray) -> np.ndarray:

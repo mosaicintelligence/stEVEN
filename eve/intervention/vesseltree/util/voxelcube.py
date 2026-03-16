@@ -45,9 +45,7 @@ class VoxelCube:
         coords[:, :, :, 2] = z_range_2
         return coords
 
-    def add_padding_layer(
-        self, dimension: str, dimension_end: str, padding_value: float = 0
-    ):
+    def add_padding_layer(self, dimension: str, dimension_end: str, padding_value: float = 0):
         assert dimension in ["x", "y", "z"], "dimension needs to be x,y or z"
         assert dimension_end in [
             "low",
@@ -75,24 +73,12 @@ class VoxelCube:
 
     def add_padding_layer_all_sides(self, n_layers: int = 1, padding_value: float = 0):
         for _ in range(n_layers):
-            self.add_padding_layer(
-                dimension="x", dimension_end="low", padding_value=padding_value
-            )
-            self.add_padding_layer(
-                dimension="x", dimension_end="high", padding_value=padding_value
-            )
-            self.add_padding_layer(
-                dimension="y", dimension_end="low", padding_value=padding_value
-            )
-            self.add_padding_layer(
-                dimension="y", dimension_end="high", padding_value=padding_value
-            )
-            self.add_padding_layer(
-                dimension="z", dimension_end="low", padding_value=padding_value
-            )
-            self.add_padding_layer(
-                dimension="z", dimension_end="high", padding_value=padding_value
-            )
+            self.add_padding_layer(dimension="x", dimension_end="low", padding_value=padding_value)
+            self.add_padding_layer(dimension="x", dimension_end="high", padding_value=padding_value)
+            self.add_padding_layer(dimension="y", dimension_end="low", padding_value=padding_value)
+            self.add_padding_layer(dimension="y", dimension_end="high", padding_value=padding_value)
+            self.add_padding_layer(dimension="z", dimension_end="low", padding_value=padding_value)
+            self.add_padding_layer(dimension="z", dimension_end="high", padding_value=padding_value)
 
     def remove_layer(self, dimension: str, dimension_end: str):
         assert dimension in ["x", "y", "z"], "dimension needs to be x,y or z"
@@ -134,17 +120,13 @@ class VoxelCube:
                 voxel_idxs_of_interest,
                 voxels_of_interest,
             ) = self._get_voxel_idxs_of_interest(coordinates, radius + radius_padding)
-            mask = self._in_sphere(
-                coordinates, radius + radius_padding, voxels_of_interest
-            )
+            mask = self._in_sphere(coordinates, radius + radius_padding, voxels_of_interest)
             idxs_to_mark = voxel_idxs_of_interest[np.where(mask)[0]]
-            self.value_array[
-                idxs_to_mark[:, 0], idxs_to_mark[:, 1], idxs_to_mark[:, 2]
-            ] = marking_value
+            self.value_array[idxs_to_mark[:, 0], idxs_to_mark[:, 1], idxs_to_mark[:, 2]] = (
+                marking_value
+            )
 
-    def _get_voxel_idxs_of_interest(
-        self, coordinates: np.ndarray, radius: float
-    ) -> np.ndarray:
+    def _get_voxel_idxs_of_interest(self, coordinates: np.ndarray, radius: float) -> np.ndarray:
         coords_min = coordinates - radius
         coords_max = coordinates + radius
         bounds = self.bounds
@@ -155,12 +137,12 @@ class VoxelCube:
         coords_min = np.minimum(coords_min, coords_max)
         coords_max = np.maximum(coords_min, coords_max)
 
-        voxel_array_min_idx = np.round(
-            (coords_min - self.world_offset) / self.spacing, 0
-        ).astype(np.int16)
-        voxel_array_max_idx = np.round(
-            (coords_max - self.world_offset) / self.spacing, 0
-        ).astype(np.int16)
+        voxel_array_min_idx = np.round((coords_min - self.world_offset) / self.spacing, 0).astype(
+            np.int16
+        )
+        voxel_array_max_idx = np.round((coords_max - self.world_offset) / self.spacing, 0).astype(
+            np.int16
+        )
 
         shape = (voxel_array_max_idx + 1) - voxel_array_min_idx
 
@@ -181,17 +163,17 @@ class VoxelCube:
         idx_y_array = np.broadcast_to(idx_y_base_array, shape)
         idx_z_array = np.broadcast_to(idx_z_base_array, shape)
 
-        voxel_idxs_of_interest = np.stack(
-            (idx_x_array, idx_y_array, idx_z_array), axis=-1
-        ).reshape(-1, 3)
+        voxel_idxs_of_interest = np.stack((idx_x_array, idx_y_array, idx_z_array), axis=-1).reshape(
+            -1, 3
+        )
 
         pos_x_array = np.broadcast_to(pos_x_base_array, shape)
         pos_y_array = np.broadcast_to(pos_y_base_array, shape)
         pos_z_array = np.broadcast_to(pos_z_base_array, shape)
 
-        voxels_of_interest = np.stack(
-            (pos_x_array, pos_y_array, pos_z_array), axis=-1
-        ).reshape(-1, 3)
+        voxels_of_interest = np.stack((pos_x_array, pos_y_array, pos_z_array), axis=-1).reshape(
+            -1, 3
+        )
 
         return voxel_idxs_of_interest, voxels_of_interest
 

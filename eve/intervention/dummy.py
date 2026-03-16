@@ -25,9 +25,7 @@ class InterventionDummy(Intervention):
         self.normalize_action = normalize_action
 
         self.last_action = np.zeros((len(self.devices), 2), dtype=np.float32)
-        self.velocity_limits = np.array(
-            [device.velocity_limit for device in self.devices]
-        )
+        self.velocity_limits = np.array([device.velocity_limit for device in self.devices])
 
         if self.normalize_action:
             high = np.ones_like(self.velocity_limits)
@@ -37,9 +35,7 @@ class InterventionDummy(Intervention):
         self.action_space = space
 
         self.device_lengths_maximum = [device.length for device in self.devices]
-        self.device_diameters = [
-            device.sofa_device.radius * 2 for device in self.devices
-        ]
+        self.device_diameters = [device.sofa_device.radius * 2 for device in self.devices]
         self.device_lengths_inserted = [0.0 for _ in devices]
         self.device_rotations = [0.0 for _ in devices]
 
@@ -75,8 +71,6 @@ class InterventionDummy(Intervention):
         target_seed = None if seed is None else self._np_random.integers(0, 2**31)
         self.target.reset(episode_number, target_seed)
 
-    def reset_devices(self) -> None:
-        ...
+    def reset_devices(self) -> None: ...
 
-    def close(self):
-        ...
+    def close(self): ...

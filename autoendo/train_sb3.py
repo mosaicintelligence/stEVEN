@@ -28,16 +28,37 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--total-steps", type=int, default=200_000)
     parser.add_argument("--num-envs", type=int, default=4)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--vmr-pool", type=Path, default=None, help="Override VMR pool (defaults to data/vmr)")
-    parser.add_argument("--model", type=str, default=None, help="Specific VMR model id. If omitted, random per env.")
-    parser.add_argument("--insert-vessel", type=str, default=None, help="Optional fixed insertion vessel name.")
-    parser.add_argument("--beam-scale", type=float, default=1.0, help="Scale procedural device beams.")
+    parser.add_argument(
+        "--vmr-pool", type=Path, default=None, help="Override VMR pool (defaults to data/vmr)"
+    )
+    parser.add_argument(
+        "--model", type=str, default=None, help="Specific VMR model id. If omitted, random per env."
+    )
+    parser.add_argument(
+        "--insert-vessel", type=str, default=None, help="Optional fixed insertion vessel name."
+    )
+    parser.add_argument(
+        "--beam-scale", type=float, default=1.0, help="Scale procedural device beams."
+    )
     parser.add_argument("--sim-dt", type=float, default=0.02, help="Simulation timestep seconds.")
-    parser.add_argument("--image-frequency", type=float, default=5.0, help="Fluoro/image frequency in Hz.")
-    parser.add_argument("--branch-radius", type=float, default=5.0, help="Approx branch radius for branching detection.")
-    parser.add_argument("--direction-delta", type=int, default=2, help="Offset for insertion direction index.")
-    parser.add_argument("--insert-idx", type=int, default=1, help="Insertion point index on branch.")
-    parser.add_argument("--no-mesh-check", action="store_true", help="Disable mesh containment filtering.")
+    parser.add_argument(
+        "--image-frequency", type=float, default=5.0, help="Fluoro/image frequency in Hz."
+    )
+    parser.add_argument(
+        "--branch-radius",
+        type=float,
+        default=5.0,
+        help="Approx branch radius for branching detection.",
+    )
+    parser.add_argument(
+        "--direction-delta", type=int, default=2, help="Offset for insertion direction index."
+    )
+    parser.add_argument(
+        "--insert-idx", type=int, default=1, help="Insertion point index on branch."
+    )
+    parser.add_argument(
+        "--no-mesh-check", action="store_true", help="Disable mesh containment filtering."
+    )
     parser.add_argument(
         "--frame-stack",
         type=int,
@@ -49,15 +70,36 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Use Recurrent PPO (LSTM) for temporal context (PPO only).",
     )
-    parser.add_argument("--lstm-hidden-size", type=int, default=256, help="Hidden size for LSTM when recurrent PPO is used.")
-    parser.add_argument("--lstm-n-layers", type=int, default=1, help="Number of LSTM layers for recurrent PPO.")
+    parser.add_argument(
+        "--lstm-hidden-size",
+        type=int,
+        default=256,
+        help="Hidden size for LSTM when recurrent PPO is used.",
+    )
+    parser.add_argument(
+        "--lstm-n-layers", type=int, default=1, help="Number of LSTM layers for recurrent PPO."
+    )
     parser.add_argument("--log-dir", type=Path, default=Path("outputs/autoendo/sb3_logs"))
     parser.add_argument("--save-path", type=Path, default=Path("outputs/autoendo/sb3_model"))
-    parser.add_argument("--no-log", action="store_true", help="Disable TensorBoard logging under log-dir/tb.")
-    parser.add_argument("--eval-episodes", type=int, default=8, help="Episodes for post-train evaluation.")
-    parser.add_argument("--device", type=str, default="auto", help="Device for torch (auto/cpu/cuda).")
-    parser.add_argument("--subproc-envs", action="store_true", help="Use SubprocVecEnv (process isolation) even for 1 env.")
-    parser.add_argument("--use-visualisation", action="store_true", help="Use SofaPygame visualisation (set SDL_VIDEODRIVER=dummy for headless).")
+    parser.add_argument(
+        "--no-log", action="store_true", help="Disable TensorBoard logging under log-dir/tb."
+    )
+    parser.add_argument(
+        "--eval-episodes", type=int, default=8, help="Episodes for post-train evaluation."
+    )
+    parser.add_argument(
+        "--device", type=str, default="auto", help="Device for torch (auto/cpu/cuda)."
+    )
+    parser.add_argument(
+        "--subproc-envs",
+        action="store_true",
+        help="Use SubprocVecEnv (process isolation) even for 1 env.",
+    )
+    parser.add_argument(
+        "--use-visualisation",
+        action="store_true",
+        help="Use SofaPygame visualisation (set SDL_VIDEODRIVER=dummy for headless).",
+    )
     return parser.parse_args()
 
 
@@ -138,7 +180,9 @@ def make_model(args: argparse.Namespace, env: gym.Env):
                 try:
                     from sb3_contrib import RecurrentPPO  # type: ignore
                 except ImportError as exc:  # pragma: no cover
-                    raise RuntimeError("RecurrentPPO not available; install sb3-contrib or SB3>=2.3.") from exc
+                    raise RuntimeError(
+                        "RecurrentPPO not available; install sb3-contrib or SB3>=2.3."
+                    ) from exc
             policy_kwargs = dict(
                 lstm_hidden_size=args.lstm_hidden_size,
                 n_lstm_layers=args.lstm_n_layers,
@@ -151,9 +195,17 @@ def make_model(args: argparse.Namespace, env: gym.Env):
                 gae_lambda=0.95,
                 policy_kwargs=policy_kwargs,
             )
-        return PPO("MlpPolicy", **common_kwargs, n_steps=2048 // args.num_envs, batch_size=64, gae_lambda=0.95)
+        return PPO(
+            "MlpPolicy",
+            **common_kwargs,
+            n_steps=2048 // args.num_envs,
+            batch_size=64,
+            gae_lambda=0.95,
+        )
     if args.recurrent:
-        raise ValueError("Recurrent flag is only supported for PPO at the moment (SAC uses frame stacking for context).")
+        raise ValueError(
+            "Recurrent flag is only supported for PPO at the moment (SAC uses frame stacking for context)."
+        )
     return SAC(
         "MlpPolicy",
         **common_kwargs,
@@ -197,19 +249,26 @@ def main() -> None:
     args.log_dir.mkdir(parents=True, exist_ok=True)
     args.save_path.parent.mkdir(parents=True, exist_ok=True)
 
-    args.save_path = args.save_path.parent / f"{args.save_path.stem}_{args.algo}_{datetime_str}{args.save_path.suffix}"
+    args.save_path = (
+        args.save_path.parent
+        / f"{args.save_path.stem}_{args.algo}_{datetime_str}{args.save_path.suffix}"
+    )
 
     vec_env, eval_env = build_envs(args)
     model = make_model(args, vec_env)
 
-    checkpoint_cb = CheckpointCallback(save_freq=5000, save_path=args.log_dir, name_prefix=f"{args.algo}_ckpt")
+    checkpoint_cb = CheckpointCallback(
+        save_freq=5000, save_path=args.log_dir, name_prefix=f"{args.algo}_ckpt"
+    )
     comp_cb = RewardComponentCallback()
     cb_list = CallbackList([checkpoint_cb, comp_cb])
     model.learn(total_timesteps=args.total_steps, callback=cb_list, progress_bar=True)
     model.save(str(args.save_path))
 
     if args.eval_episodes > 0:
-        mean_rew, std_rew = evaluate_policy(model, eval_env, n_eval_episodes=args.eval_episodes, deterministic=True)
+        mean_rew, std_rew = evaluate_policy(
+            model, eval_env, n_eval_episodes=args.eval_episodes, deterministic=True
+        )
         print(f"[eval] mean_reward={mean_rew:.3f} +- {std_rew:.3f}")
 
     vec_env.close()

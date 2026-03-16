@@ -21,27 +21,20 @@ class VesselTreeDummy(VesselTree):
 
         if isinstance(branch_centerlines, list):
             branche_new = [
-                Branch(f"branch_{i}", coords)
-                for i, coords in enumerate(branch_centerlines)
+                Branch(f"branch_{i}", coords) for i, coords in enumerate(branch_centerlines)
             ]
         elif isinstance(branch_centerlines, dict):
-            branche_new = [
-                Branch(name, coords) for name, coords in branch_centerlines.items()
-            ]
+            branche_new = [Branch(name, coords) for name, coords in branch_centerlines.items()]
         self.branches = branche_new
 
         branch_cl = [branch.coordinates for branch in self.branches]
         self.centerline_coordinates = np.concatenate(branch_cl)
 
         self.branching_points = (
-            calc_branching(self.branches, radii_aprox)
-            if radii_aprox is not None
-            else None
+            calc_branching(self.branches, radii_aprox) if radii_aprox is not None else None
         )
 
-        self.insertion = Insertion(
-            np.array(insertion_point), np.array(insertion_direction)
-        )
+        self.insertion = Insertion(np.array(insertion_point), np.array(insertion_direction))
 
         branch_highs = [branch.high for branch in self.branches]
         high = np.max(branch_highs, axis=0)
@@ -54,8 +47,6 @@ class VesselTreeDummy(VesselTree):
         self.mesh_path = None
         self.visu_mesh_path = None
 
-    def step(self) -> None:
-        ...
+    def step(self) -> None: ...
 
-    def reset(self, episode_nr=0, seed: int = None) -> None:
-        ...
+    def reset(self, episode_nr=0, seed: int = None) -> None: ...

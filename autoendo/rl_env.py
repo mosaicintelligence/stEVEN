@@ -126,7 +126,9 @@ class RewardComponentWrapper(GymWrapper):
         obs, reward, terminated, truncated, info = self.env.step(action)
         try:
             info = dict(info)
-            info["reward_components"] = {k: getattr(c, "reward", None) for k, c in self._components.items()}
+            info["reward_components"] = {
+                k: getattr(c, "reward", None) for k, c in self._components.items()
+            }
         except Exception as exc:  # pragma: no cover
             print(f"[reward_components] failed to attach: {exc}")
         return obs, reward, terminated, truncated, info
@@ -167,8 +169,14 @@ def _build_env(
     branch_names = list_branch_names(model_dir)
     insertion_vessel = (insert_vessel or random.choice(branch_names)).lower()
     if insertion_vessel not in branch_names:
-        raise ValueError(f"Insertion vessel '{insertion_vessel}' not present. Candidates: {branch_names}")
-    target_branch_list = list(target_branches) if target_branches else [b for b in branch_names if b != insertion_vessel]
+        raise ValueError(
+            f"Insertion vessel '{insertion_vessel}' not present. Candidates: {branch_names}"
+        )
+    target_branch_list = (
+        list(target_branches)
+        if target_branches
+        else [b for b in branch_names if b != insertion_vessel]
+    )
     if not target_branch_list:
         target_branch_list = branch_names
 
@@ -229,7 +237,12 @@ def _build_env(
         radius_hint=branch_radius,
     )
     obs = eve.observation.ObsDict(
-        {"position": position, "target": target_state, "rotation": rotation, "local_patch": local_patch}
+        {
+            "position": position,
+            "target": target_state,
+            "rotation": rotation,
+            "local_patch": local_patch,
+        }
     )
 
     target_reward = eve.reward.TargetReached(intervention=intervention, factor=2.0)
@@ -245,7 +258,9 @@ def _build_env(
     if use_visualisation:
         _configure_headless_display()
 
-    visualisation = SofaPygame(intervention=intervention) if use_visualisation else VisualisationDummy()
+    visualisation = (
+        SofaPygame(intervention=intervention) if use_visualisation else VisualisationDummy()
+    )
 
     env = eve.Env(
         intervention=intervention,
@@ -259,7 +274,9 @@ def _build_env(
     )
     env = gym.wrappers.FlattenObservation(env)
     env = gym.wrappers.ClipAction(env)
-    env = RewardComponentWrapper(env, components={"target": target_reward, "path": path_delta, "tip": tip_progress})
+    env = RewardComponentWrapper(
+        env, components={"target": target_reward, "path": path_delta, "tip": tip_progress}
+    )
     limits = np.abs(np.array(intervention.velocity_limits, dtype=np.float32)).reshape(-1)
     env.action_space = gym.spaces.Box(low=-limits, high=limits, dtype=np.float32)
     print(f"[Env] obs_dim={env.observation_space.shape[0]} action_dim={env.action_space.shape[0]}")
@@ -323,7 +340,9 @@ def make_env(
     if noop_action:
         # Freeze actions to zeros for debugging stability.
         env = gym.wrappers.TransformReward(env, lambda r: r)
-        env = gym.wrappers.TransformObservation(env, lambda o: o, observation_space=env.observation_space)
+        env = gym.wrappers.TransformObservation(
+            env, lambda o: o, observation_space=env.observation_space
+        )
         orig_step = env.step
 
         def step_zero(_action):
@@ -351,7 +370,7 @@ def make_vec_env(
     sim_dt: float = 0.02,
     image_frequency: float = 5.0,
     seed: Optional[int] = None,
-    use_subproc_envs: bool = False, # auto-detect if num_envs>1
+    use_subproc_envs: bool = False,  # auto-detect if num_envs>1
     randomize_insertion_per_episode: bool = True,
     use_visualisation: bool = False,
     patch_size: int = 10,

@@ -13,7 +13,7 @@ class Memory(Observation):
         name: Optional[str] = None,
     ) -> None:
         self.name = name or wrapped_obs.name
-        
+
         assert reset_mode in [
             0,
             1,

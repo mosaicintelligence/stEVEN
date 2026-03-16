@@ -11,16 +11,13 @@ class Observation(EveObject, ABC):
 
     @property
     @abstractmethod
-    def space(self) -> gym.spaces.Box:
-        ...
+    def space(self) -> gym.spaces.Box: ...
 
     @abstractmethod
-    def step(self) -> None:
-        ...
+    def step(self) -> None: ...
 
     @abstractmethod
-    def reset(self, episode_nr: int = 0) -> None:
-        ...
+    def reset(self, episode_nr: int = 0) -> None: ...
 
     def __call__(self) -> np.ndarray:
         return self.obs

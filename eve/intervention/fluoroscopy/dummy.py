@@ -54,7 +54,7 @@ class FluoroscopyDummyWithVesselTree(Fluoroscopy):
         self.vessel_tree = vessel_tree
         self.image_frequency = image_frequency
         self.image_rot_zx = image_rot_zx or [0, 0]
-        self.image_center = image_center or [0,0,0]
+        self.image_center = image_center or [0, 0, 0]
         self.field_of_view = field_of_view
 
         self.image_space = image_space
@@ -70,9 +70,7 @@ class FluoroscopyDummyWithVesselTree(Fluoroscopy):
     def tracking3d_space(self) -> gym.spaces.Box:
         low = self.vessel_tree.coordinate_space.low
         high = self.vessel_tree.coordinate_space.high
-        low = vessel_cs_to_tracking3d(
-            low, self.image_rot_zx, self.image_center, self.field_of_view
-        )
+        low = vessel_cs_to_tracking3d(low, self.image_rot_zx, self.image_center, self.field_of_view)
         high = vessel_cs_to_tracking3d(
             high, self.image_rot_zx, self.image_center, self.field_of_view
         )

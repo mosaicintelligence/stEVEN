@@ -16,9 +16,7 @@ class Pillow(SimulatedFluoroscopy):
         image_center: Optional[Tuple[float, float, float]] = None,
         field_of_view: Optional[Tuple[float, float]] = None,
     ) -> None:
-        super().__init__(
-            simulation, image_frequency, image_rot_zx, image_center, field_of_view
-        )
+        super().__init__(simulation, image_frequency, image_rot_zx, image_center, field_of_view)
         if isinstance(image_size, int):
             image_size = (image_size, image_size)
         self.image_size = image_size
@@ -66,12 +64,8 @@ class Pillow(SimulatedFluoroscopy):
         ) / 2
         self._image_offset = np.array([x_image_offset, y_image_offset])
 
-    def _render(
-        self, trackings: Dict[str, np.ndarray], diameters: Dict[str, float]
-    ) -> None:
-        physics_image = Image.new(
-            mode=self._image_mode, size=self.image_size, color=255
-        )
+    def _render(self, trackings: Dict[str, np.ndarray], diameters: Dict[str, float]) -> None:
+        physics_image = Image.new(mode=self._image_mode, size=self.image_size, color=255)
         lines = zip(trackings, diameters)
 
         # lines = [
@@ -122,9 +116,7 @@ class Pillow(SimulatedFluoroscopy):
         draw.line(point_cloud_image, fill=grey_value, width=width, joint="curve")
         return np.asarray(image)
 
-    def _coord_transform_tracking_to_image(
-        self, coords: np.ndarray
-    ) -> List[Tuple[float, float]]:
+    def _coord_transform_tracking_to_image(self, coords: np.ndarray) -> List[Tuple[float, float]]:
         coords_image = (coords + self._tracking_offset) * self._tracking_to_image_factor
         coords_image += self._image_offset
         coords_image = np.round(coords_image, decimals=0).astype(np.int64)

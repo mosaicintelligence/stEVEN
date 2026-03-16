@@ -23,11 +23,9 @@ class Fluoroscopy(EveObject):
     device_trackings3d: Optional[List[np.ndarray]]
     device_trackings2d: Optional[List[np.ndarray]]
 
-    def step(self) -> None:
-        ...
+    def step(self) -> None: ...
 
-    def reset(self, episode_nr: int = 0) -> None:
-        ...
+    def reset(self, episode_nr: int = 0) -> None: ...
 
     def get_reset_state(self) -> Dict[str, Any]:
         state = {

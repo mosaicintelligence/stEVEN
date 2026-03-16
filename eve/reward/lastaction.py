@@ -3,9 +3,7 @@ from ..intervention import Intervention
 
 
 class LastAction(Reward):
-    def __init__(
-        self, intervention: Intervention, action_idx: int, factor: float
-    ) -> None:
+    def __init__(self, intervention: Intervention, action_idx: int, factor: float) -> None:
         self.intervention = intervention
 
         self.action_idx = action_idx

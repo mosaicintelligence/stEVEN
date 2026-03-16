@@ -1,5 +1,6 @@
 from .truncation import Truncation
 
+
 class MaxSteps(Truncation):
     def __init__(self, max_steps: int) -> None:
         self.max_steps = max_steps

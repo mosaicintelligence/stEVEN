@@ -44,7 +44,9 @@ class MonoPlaneStatic(SimulatedIntervention):
         limits = np.abs(self.velocity_limits).reshape(-1)
         print(f"[Intervention] velocity limits: {limits}")
         self._action_space = gym.spaces.Box(low=-limits, high=limits, dtype=np.float32)
-        print(f"[Intervention] action_space low={self._action_space.low}, high={self._action_space.high}")
+        print(
+            f"[Intervention] action_space low={self._action_space.low}, high={self._action_space.high}"
+        )
         self.last_action = np.zeros_like(self.velocity_limits)
         self._device_lengths_inserted = self.simulation.inserted_lengths
         self._device_rotations = self.simulation.rotations
@@ -156,13 +158,17 @@ class MonoPlaneStatic(SimulatedIntervention):
                     coords_high=self.vessel_tree.coordinate_space.high,
                     vessel_visual_path=self.vessel_tree.visu_mesh_path,
                 )
-                print(f"[Insertion] reoriented along centerline path dir={np.round(path_dir,3).tolist()}")
+                print(
+                    f"[Insertion] reoriented along centerline path dir={np.round(path_dir,3).tolist()}"
+                )
         except Exception as exc:  # pragma: no cover
             print(f"[Insertion] failed to reorient toward path: {exc}")
         self.fluoroscopy.reset(episode_number)
         self.last_action *= 0.0
 
-    def _compute_centerline_path_dir(self, start: np.ndarray, target: np.ndarray) -> Optional[np.ndarray]:
+    def _compute_centerline_path_dir(
+        self, start: np.ndarray, target: np.ndarray
+    ) -> Optional[np.ndarray]:
         """Compute the direction of the first segment along the shortest centerline path to target."""
         try:
             bps = getattr(self.vessel_tree, "branching_points", None)
@@ -185,7 +191,9 @@ class MonoPlaneStatic(SimulatedIntervention):
                         if bp == other_bp:
                             continue
                         if connection in other_bp.connections:
-                            pts = connection.get_path_along_branch(bp.coordinates, other_bp.coordinates)
+                            pts = connection.get_path_along_branch(
+                                bp.coordinates, other_bp.coordinates
+                            )
                             node_connections[bp][other_bp] = (get_length(pts), pts)
 
             # Base graph adjacency.

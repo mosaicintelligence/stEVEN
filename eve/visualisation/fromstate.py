@@ -26,5 +26,4 @@ class FromState(Visualisation):
     def close(self) -> None:
         self._plt.close(self.fig)
 
-    def reset(self, episode_nr: int = 0) -> None:
-        ...
+    def reset(self, episode_nr: int = 0) -> None: ...

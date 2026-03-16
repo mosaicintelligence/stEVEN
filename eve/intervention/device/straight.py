@@ -57,9 +57,7 @@ class Straight(Device):
         spire_diameter = 0.0
         num_edges = math.ceil(self.visu_edges_per_mm * self.length)
         num_edges_collis_tip = math.ceil(self.collis_edges_per_mm_tip * self.tip_length)
-        num_edges_collis_straight = math.ceil(
-            self.collis_edges_per_mm_straight * straight_length
-        )
+        num_edges_collis_straight = math.ceil(self.collis_edges_per_mm_straight * straight_length)
         beams_tip = math.ceil(self.tip_length * self.beams_per_mm_tip)
         beams_straight = math.ceil(straight_length * self.beams_per_mm_straight)
 

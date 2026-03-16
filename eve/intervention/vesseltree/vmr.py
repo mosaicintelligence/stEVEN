@@ -42,6 +42,7 @@ def _get_vtk_file(directory: str, file_ending: str) -> str:
             path = os.path.join(directory, file)
             return path
 
+
 def _load_raw_points_from_pth(pth_file_path: str) -> np.ndarray:
     """Load all centerline points from a .pth without filtering against the mesh."""
     with open(pth_file_path, "r", encoding="utf-8") as file:
@@ -97,7 +98,7 @@ class VMR(VesselTree):
         self,
         model: str,
         insertion_vessel_name: str,
-        insertion_point_idx: int, # Index of insertion point on chosen branch
+        insertion_point_idx: int,  # Index of insertion point on chosen branch
         insertion_direction_idx_diff: int,
         approx_branch_radii: Union[List[float], float],
         rotate_yzx_deg: Optional[Tuple[float, float, float]] = None,
@@ -155,7 +156,9 @@ class VMR(VesselTree):
         self.centerline_coordinates = np.concatenate(centerline_coordinates)
 
         if self.randomize_insertion_each_reset:
-            self.insertion_vessel_name = self._np_random.choice([branch.name for branch in branches])
+            self.insertion_vessel_name = self._np_random.choice(
+                [branch.name for branch in branches]
+            )
 
         insert_vessel = self[self.insertion_vessel_name]
         raw_insert_branch = self._load_raw_insertion_branch(insert_vessel.name)
@@ -187,7 +190,9 @@ class VMR(VesselTree):
         else:
             ip, ip_dir = ip_raw, ip_dir_raw
         self.insertion = Insertion(ip, ip_dir)
-        print(f"[VMR] insertion branch={insert_vessel.name} ip={np.round(ip,2)} dir={np.round(ip_dir,2)}")
+        print(
+            f"[VMR] insertion branch={insert_vessel.name} ip={np.round(ip,2)} dir={np.round(ip_dir,2)}"
+        )
         self.branching_points = calc_branching(self.branches, self.approx_branch_radii)
         self._mesh_path = None
 

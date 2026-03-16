@@ -49,9 +49,7 @@ class BruteForceBFS(Pathfinder):
             position, fluoro.image_rot_zx, fluoro.image_center
         )
         target = self.intervention.target.coordinates3d
-        target_vessel_cs = tracking3d_to_vessel_cs(
-            target, fluoro.image_rot_zx, fluoro.image_center
-        )
+        target_vessel_cs = tracking3d_to_vessel_cs(target, fluoro.image_rot_zx, fluoro.image_center)
         position_branch = find_nearest_branch_to_point(
             position_vessel_cs, self.intervention.vessel_tree
         )
@@ -109,9 +107,9 @@ class BruteForceBFS(Pathfinder):
                         )
                         length = get_length(points)
 
-                        node_connections[branching_point][
-                            target_branching_point
-                        ] = BPConnection(length, points)
+                        node_connections[branching_point][target_branching_point] = BPConnection(
+                            length, points
+                        )
         return node_connections
 
     def _initialize_search_graph_base(
@@ -145,21 +143,15 @@ class BruteForceBFS(Pathfinder):
             shortest_path_length = get_length(shortest_path_points)
 
         else:
-            shortest_path_points = start_branch.get_path_along_branch(
-                start, path[1].coordinates
-            )
+            shortest_path_points = start_branch.get_path_along_branch(start, path[1].coordinates)
             shortest_path_length = get_length(shortest_path_points)
 
             for node, next_node in zip(path[1:-2], path[2:-1]):
                 connection = self._node_connections[node][next_node]
                 shortest_path_length += connection.length
-                shortest_path_points = np.vstack(
-                    (shortest_path_points, connection.points[1:])
-                )
+                shortest_path_points = np.vstack((shortest_path_points, connection.points[1:]))
 
-            target_points = target_branch.get_path_along_branch(
-                path[-2].coordinates, target
-            )
+            target_points = target_branch.get_path_along_branch(path[-2].coordinates, target)
 
             target_length = get_length(target_points)
             shortest_path_points = np.vstack((shortest_path_points, target_points[1:]))
@@ -185,9 +177,7 @@ class BruteForceBFS(Pathfinder):
 
         return search_graph
 
-    def _get_bfs_paths_generator(
-        self, graph: Dict
-    ) -> Generator[List[BranchingPoint], None, None]:
+    def _get_bfs_paths_generator(self, graph: Dict) -> Generator[List[BranchingPoint], None, None]:
         """bfs path search
 
         Arguments:

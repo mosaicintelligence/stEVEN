@@ -4,9 +4,7 @@ from ..intervention import Intervention
 
 
 class TargetReached(Info):
-    def __init__(
-        self, intervention: Intervention, name: str = "target_reached"
-    ) -> None:
+    def __init__(self, intervention: Intervention, name: str = "target_reached") -> None:
         super().__init__(name)
         self.intervention = intervention
 

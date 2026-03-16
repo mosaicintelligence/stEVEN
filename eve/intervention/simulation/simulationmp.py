@@ -186,9 +186,7 @@ class SimulationMP(Simulation):
             timeout=self.step_timeout, default_value=self._inserted_lengths
         )
         self._task_queue.put(["rotations", (), {}])
-        self._rotations = self._get_result(
-            timeout=self.step_timeout, default_value=self._rotations
-        )
+        self._rotations = self._get_result(timeout=self.step_timeout, default_value=self._rotations)
 
     def _new_sofa_process(self):
         simu_dict = self.simulation.get_config_dict()

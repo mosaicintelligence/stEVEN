@@ -22,15 +22,9 @@ class AorticArchRandom(VesselTree):
         n_coordinate_space_iters: int = 5,
         episodes_between_change: int = 1,
     ) -> None:
-        self.scale_width_array = scale_width_array or np.linspace(
-            0.7, 1.3, 61, endpoint=True
-        )
-        self.scale_heigth_array = scale_heigth_array or np.linspace(
-            0.7, 1.3, 61, endpoint=True
-        )
-        self.scale_diameter_array = scale_diameter_array or np.linspace(
-            0.7, 1.3, 61, endpoint=True
-        )
+        self.scale_width_array = scale_width_array or np.linspace(0.7, 1.3, 61, endpoint=True)
+        self.scale_heigth_array = scale_heigth_array or np.linspace(0.7, 1.3, 61, endpoint=True)
+        self.scale_diameter_array = scale_diameter_array or np.linspace(0.7, 1.3, 61, endpoint=True)
         self.seeds_vessel = seeds_vessel
         self.arch_types_filter = arch_types_filter
         self.rotate_y_deg_array = rotate_y_deg_array or [0.0]
@@ -49,9 +43,7 @@ class AorticArchRandom(VesselTree):
 
         self._rng = random.Random()
         self._aortic_arch: AorticArch = self._randomize_vessel()
-        self.coordinate_space = self._calc_coordinate_space(
-            self.n_coordinate_space_iters
-        )
+        self.coordinate_space = self._calc_coordinate_space(self.n_coordinate_space_iters)
         self.visu_mesh_path = None
 
     @property
@@ -105,9 +97,7 @@ class AorticArchRandom(VesselTree):
         low_global = np.array([np.inf, np.inf, np.inf])
         high_global = np.array([-np.inf, -np.inf, -np.inf])
 
-        combinations = product(
-            self._arch_types, rot_x_low_high, rot_y_low_high, rot_z_low_high
-        )
+        combinations = product(self._arch_types, rot_x_low_high, rot_y_low_high, rot_z_low_high)
         for _ in range(iterations):
             for archtype, rot_x, rot_y, rot_z in combinations:
                 vessel_seed = (

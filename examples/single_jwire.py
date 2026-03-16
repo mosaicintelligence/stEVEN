@@ -49,9 +49,7 @@ pathfinder = eve.pathfinder.BruteForceBFS(intervention=intervention)
 position = eve.observation.Tracking2D(intervention=intervention, n_points=5)
 position = eve.observation.wrapper.NormalizeTracking2DEpisode(position, intervention)
 target_state = eve.observation.Target2D(intervention=intervention)
-target_state = eve.observation.wrapper.NormalizeTracking2DEpisode(
-    target_state, intervention
-)
+target_state = eve.observation.wrapper.NormalizeTracking2DEpisode(target_state, intervention)
 rotation = eve.observation.Rotations(intervention=intervention)
 
 state = eve.observation.ObsDict(

@@ -24,9 +24,7 @@ class TargetReached(Reward):
             else:
                 target_reached = self.interim_target.reached
         else:
-            target_reached = (
-                self.intervention.target.reached or self.interim_target.reached
-            )
+            target_reached = self.intervention.target.reached or self.interim_target.reached
         self.reward = self.factor * target_reached
 
     def reset(self, episode_nr: int = 0) -> None:

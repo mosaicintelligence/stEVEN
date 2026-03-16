@@ -10,11 +10,9 @@ class Info(EveObject, ABC):
 
     @property
     @abstractmethod
-    def info(self) -> Dict[str, Any]:
-        ...
+    def info(self) -> Dict[str, Any]: ...
 
-    def step(self) -> None:
-        ...
+    def step(self) -> None: ...
 
     def reset(self, episode_nr: int = 0) -> None:
         _ = episode_nr

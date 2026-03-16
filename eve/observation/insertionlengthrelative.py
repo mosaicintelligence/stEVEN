@@ -12,9 +12,7 @@ class InsertionLengthRelative(Observation):
         relative_to_device_idx: int,
         name: str = None,
     ) -> None:
-        name = (
-            name or f"Device_length_{device_idx}_relative_to_{relative_to_device_idx}"
-        )
+        name = name or f"Device_length_{device_idx}_relative_to_{relative_to_device_idx}"
         super().__init__(name)
         self.intervention = intervention
         self.device_idx = device_idx
@@ -31,8 +29,7 @@ class InsertionLengthRelative(Observation):
     def step(self) -> None:
         inserted_lengths = self.intervention.device_lengths_inserted
         relative_length = (
-            inserted_lengths[self.device_idx]
-            - inserted_lengths[self.relative_to_device_idx]
+            inserted_lengths[self.device_idx] - inserted_lengths[self.relative_to_device_idx]
         )
         self.obs = np.array(relative_length, dtype=np.float32)
 

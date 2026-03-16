@@ -14,15 +14,11 @@ class ConfigHandler:
         self.object_registry = {}
         self._eve = import_module("eve")
 
-    def save_config(
-        self, eve_object: Any, file: str, eve_classes_only: bool = True
-    ) -> None:
+    def save_config(self, eve_object: Any, file: str, eve_classes_only: bool = True) -> None:
         obj_dict = self.object_to_config_dict(eve_object, eve_classes_only)
         self.save_config_dict(obj_dict, file)
 
-    def object_to_config_dict(
-        self, eve_object: Any, eve_classes_only: bool = True
-    ) -> dict:
+    def object_to_config_dict(self, eve_object: Any, eve_classes_only: bool = True) -> dict:
         self.object_registry = {}
         config_dict = self._eve_obj_to_dict(eve_object, eve_classes_only)
         self.object_registry = {}
@@ -68,9 +64,7 @@ class ConfigHandler:
         self, config_dict: dict, full_config_dict: Optional[dict] = None
     ) -> Dict[int, str]:
         if full_config_dict is not None:
-            full_config_registry, _ = self._config_dict_to_object_list_recursive(
-                full_config_dict
-            )
+            full_config_registry, _ = self._config_dict_to_object_list_recursive(full_config_dict)
         else:
             full_config_registry = None
         config_list, _ = self._config_dict_to_object_list_recursive(
@@ -196,9 +190,7 @@ class ConfigHandler:
             return self._eve_obj_to_dict(obj, eco)
 
         if hasattr(obj, "__module__"):
-            raise NotImplementedError(
-                f"Handling this class {obj.__class__} in not implemented "
-            )
+            raise NotImplementedError(f"Handling this class {obj.__class__} in not implemented ")
 
         return obj
 

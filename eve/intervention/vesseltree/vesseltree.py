@@ -28,12 +28,10 @@ class VesselTree(EveObject, ABC):
     mesh_path: str
     visu_mesh_path: Optional[str] = None
 
-    def step(self) -> None:
-        ...
+    def step(self) -> None: ...
 
     @abstractmethod
-    def reset(self, episode_nr=0, seed: int = None) -> None:
-        ...
+    def reset(self, episode_nr=0, seed: int = None) -> None: ...
 
     def __getitem__(self, item: Union[int, str]):
         if isinstance(item, int):
@@ -151,22 +149,11 @@ def plot_branches(vesseltree: VesselTree):
         )
         ax.add_artist(line)
 
-    x = [
-        branching_point.coordinates[0]
-        for branching_point in vesseltree.branching_points
-    ]
-    y = [
-        branching_point.coordinates[1]
-        for branching_point in vesseltree.branching_points
-    ]
-    z = [
-        branching_point.coordinates[2]
-        for branching_point in vesseltree.branching_points
-    ]
+    x = [branching_point.coordinates[0] for branching_point in vesseltree.branching_points]
+    y = [branching_point.coordinates[1] for branching_point in vesseltree.branching_points]
+    z = [branching_point.coordinates[2] for branching_point in vesseltree.branching_points]
 
-    bp_artist = mplot3d.art3d.Line3D(
-        x, y, z, marker="o", color="g", markersize=8, linestyle="None"
-    )
+    bp_artist = mplot3d.art3d.Line3D(x, y, z, marker="o", color="g", markersize=8, linestyle="None")
     ax.add_artist(bp_artist)
     # fig.canvas.draw()
     # plt.pause(0.001)

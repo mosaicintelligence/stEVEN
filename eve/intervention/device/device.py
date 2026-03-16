@@ -41,9 +41,7 @@ class Arc:
 
 def save_line_mesh(point_cloud: np.ndarray, file: str):
     with open(file, "w", encoding="utf-8") as f:
-        vertices = [
-            f"v {point[0]:.4f} {point[1]:.4f} {point[2]:.4f}\n" for point in point_cloud
-        ]
+        vertices = [f"v {point[0]:.4f} {point[1]:.4f} {point[2]:.4f}\n" for point in point_cloud]
         f.writelines(vertices)
         connections = [f"l {i+1} {i+2}\n" for i in range(point_cloud.shape[0] - 1)]
         f.writelines(connections)
@@ -188,9 +186,7 @@ class MeshDevice(Device):
             angle_in_plane, angle_out_of_plane, in_plane_axis, out_of_plane_axis
         )
 
-        dir_to_curve_center = self._rotate_around_axis(
-            initial_direction, np.pi / 2, axis
-        )
+        dir_to_curve_center = self._rotate_around_axis(initial_direction, np.pi / 2, axis)
         curve_center = start + dir_to_curve_center * radius
 
         arc_length = radius * abs(angle)
@@ -199,10 +195,7 @@ class MeshDevice(Device):
         sample_angles = sample_angles[1:]
 
         base_vector = -dir_to_curve_center * radius
-        vectors = [
-            self._rotate_around_axis(base_vector, angle, axis)
-            for angle in sample_angles
-        ]
+        vectors = [self._rotate_around_axis(base_vector, angle, axis) for angle in sample_angles]
         vectors = np.array(vectors)
 
         curve_point_cloud = vectors + curve_center
@@ -222,9 +215,9 @@ class MeshDevice(Device):
         in_plane_axis: np.ndarray,
         out_of_plane_axis: np.ndarray,
     ):
-        axis = (
-            in_plane_axis * in_plane_angle + out_of_plane_axis * out_of_plane_angle
-        ) / (abs(in_plane_angle) + abs(out_of_plane_angle))
+        axis = (in_plane_axis * in_plane_angle + out_of_plane_axis * out_of_plane_angle) / (
+            abs(in_plane_angle) + abs(out_of_plane_angle)
+        )
         angle = (in_plane_angle**2 + out_of_plane_angle**2) / (
             abs(in_plane_angle) + abs(out_of_plane_angle)
         )

@@ -117,14 +117,10 @@ class AorticArch(VesselTree):
             branches = self._create_type_I(rng, normal, aorta_resolution, aorta)
 
         elif self.arch_type == ArchType.II:
-            branches = self._create_type_II(
-                rng, normal, aorta_resolution, bct_resolution, aorta
-            )
+            branches = self._create_type_II(rng, normal, aorta_resolution, bct_resolution, aorta)
 
         elif self.arch_type == ArchType.IV:
-            branches = self._create_type_IV(
-                rng, normal, aorta_resolution, bct_resolution, aorta
-            )
+            branches = self._create_type_IV(rng, normal, aorta_resolution, bct_resolution, aorta)
 
         elif self.arch_type == ArchType.V:
             if rng.random() < 0.5:
@@ -163,13 +159,9 @@ class AorticArch(VesselTree):
     def _create_VI(self, rng, normal, aorta_resolution, aorta: BranchWithRadii):
         distance_aorta_end_bct = normal(36, 3)
         idx = int(np.round(distance_aorta_end_bct / aorta_resolution, 0))
-        bct, bct_chs_points = brachiocephalic_trunk_static(
-            aorta.coordinates[-idx], 1, rng
-        )
+        bct, bct_chs_points = brachiocephalic_trunk_static(aorta.coordinates[-idx], 1, rng)
 
-        rcca, _ = right_common_carotid_V(
-            bct.coordinates[-1], bct_chs_points[-1], 1, rng
-        )
+        rcca, _ = right_common_carotid_V(bct.coordinates[-1], bct_chs_points[-1], 1, rng)
         lcca, _ = left_common_carotid_II(bct.coordinates[-1], 1, rng)
 
         distance_bct_co = normal(50, 1.5)
@@ -201,13 +193,9 @@ class AorticArch(VesselTree):
     def _create_Va(self, rng, normal, aorta_resolution, aorta: BranchWithRadii):
         distance_aorta_end_bct = normal(36, 3)
         idx = int(np.round(distance_aorta_end_bct / aorta_resolution, 0))
-        bct, bct_chs_points = brachiocephalic_trunk_static(
-            aorta.coordinates[-idx], 1, rng
-        )
+        bct, bct_chs_points = brachiocephalic_trunk_static(aorta.coordinates[-idx], 1, rng)
 
-        rcca, _ = right_common_carotid_V(
-            bct.coordinates[-1], bct_chs_points[-1], 1, rng
-        )
+        rcca, _ = right_common_carotid_V(bct.coordinates[-1], bct_chs_points[-1], 1, rng)
         lcca, _ = left_common_carotid_II(bct.coordinates[-1], 1, rng)
 
         distance_bct_lsca = normal(41, 2.5)
@@ -251,13 +239,9 @@ class AorticArch(VesselTree):
 
         distance_aorta_lcca = normal(bct.length * (2 / 3), bct.length * (3 / 10) / 3)
         distance_aorta_lcca = abs(distance_aorta_lcca)  # if distance < 0
-        distance_aorta_lcca = min(
-            bct.length, distance_aorta_lcca
-        )  # if distance longer than bct
+        distance_aorta_lcca = min(bct.length, distance_aorta_lcca)  # if distance longer than bct
         lcca_idx = int(np.round(distance_aorta_lcca / bct_resolution, 0))
-        lcca, _ = left_common_carotid_II(
-            bct.coordinates[lcca_idx], resolution=1, rng=rng
-        )
+        lcca, _ = left_common_carotid_II(bct.coordinates[lcca_idx], resolution=1, rng=rng)
 
         distance_bct_lsca = normal(41, 2.5)
         idx += int(np.round(distance_bct_lsca / aorta_resolution, 0))
@@ -267,9 +251,7 @@ class AorticArch(VesselTree):
     def _create_type_I(self, rng, normal, aorta_resolution, aorta: BranchWithRadii):
         distance_aorta_end_bct = normal(36, 5)
         idx = int(np.round(distance_aorta_end_bct / aorta_resolution, 0))
-        bct, bct_chs_points = brachiocephalic_trunk_static(
-            aorta.coordinates[-idx], 1, rng
-        )
+        bct, bct_chs_points = brachiocephalic_trunk_static(aorta.coordinates[-idx], 1, rng)
 
         rsa, _ = right_subclavian(bct.coordinates[-1], bct_chs_points[-1], 1, rng)
         rcca, _ = right_common_carotid(bct.coordinates[-1], 1, rng)

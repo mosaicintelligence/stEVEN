@@ -27,8 +27,7 @@ class Intervention(EveObject, ABC):
     action_space: gym.spaces.Box
 
     @abstractmethod
-    def step(self, action: np.ndarray) -> None:
-        ...
+    def step(self, action: np.ndarray) -> None: ...
 
     @abstractmethod
     def reset(
@@ -36,16 +35,13 @@ class Intervention(EveObject, ABC):
         episode_number: int,
         seed: Optional[int] = None,
         options: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @abstractmethod
-    def close(self) -> None:
-        ...
+    def close(self) -> None: ...
 
     @abstractmethod
-    def reset_devices(self) -> None:
-        ...
+    def reset_devices(self) -> None: ...
 
     def get_reset_state(self) -> Dict[str, Any]:
         state = {

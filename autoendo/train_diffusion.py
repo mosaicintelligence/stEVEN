@@ -23,14 +23,20 @@ from .rl_env import make_env
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--rollout-steps", type=int, default=25_000, help="Transitions to collect for training.")
+    parser.add_argument(
+        "--rollout-steps", type=int, default=25_000, help="Transitions to collect for training."
+    )
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--diffusion-steps", type=int, default=16)
-    parser.add_argument("--save-path", type=Path, default=Path("outputs/autoendo/diffusion_policy.pt"))
+    parser.add_argument(
+        "--save-path", type=Path, default=Path("outputs/autoendo/diffusion_policy.pt")
+    )
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--behavior-path", type=Path, default=None, help="Optional SB3 policy to collect data.")
+    parser.add_argument(
+        "--behavior-path", type=Path, default=None, help="Optional SB3 policy to collect data."
+    )
     parser.add_argument("--behavior-algo", choices=["ppo", "sac"], default="ppo")
     parser.add_argument("--eval-episodes", type=int, default=5)
     parser.add_argument("--device", type=str, default="auto")
@@ -113,14 +119,18 @@ def main() -> None:
     behavior_model = load_behavior_model(args, env)
 
     print("[diffusion] collecting dataset...")
-    obs_np, act_np = collect_dataset(env, steps=args.rollout_steps, behavior_model=behavior_model, seed=args.seed)
+    obs_np, act_np = collect_dataset(
+        env, steps=args.rollout_steps, behavior_model=behavior_model, seed=args.seed
+    )
     obs_tensor = torch.as_tensor(obs_np, dtype=torch.float32)
     act_tensor = torch.as_tensor(act_np, dtype=torch.float32)
 
     dataset = TensorDataset(obs_tensor, act_tensor)
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
 
-    device = torch.device(args.device if args.device != "auto" else ("cuda" if torch.cuda.is_available() else "cpu"))
+    device = torch.device(
+        args.device if args.device != "auto" else ("cuda" if torch.cuda.is_available() else "cpu")
+    )
     policy = DiffusionPolicy(
         obs_dim=obs_tensor.shape[1],
         action_dim=act_tensor.shape[1],
